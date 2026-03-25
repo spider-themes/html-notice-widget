@@ -7,15 +7,23 @@
 
 namespace HTML_Notice_Widget;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class PHP_Admin {
 	/**
-	 * Constructor
+	 * Constructor — register hooks
 	 */
 	public function __construct() {
 		add_action( 'admin_init', [ $this, 'handle_form_submissions' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 		add_action( 'wp_ajax_hnw_download_sdk', [ $this, 'ajax_download_sdk' ] );
 	}
+
+	/* =========================================================================
+	   Form Handlers
+	   ========================================================================= */
 
 	/**
 	 * Handle all form submissions
@@ -25,7 +33,6 @@ class PHP_Admin {
 			return;
 		}
 
-		// Handle site operations
 		if ( isset( $_POST['action'] ) && isset( $_POST['_wpnonce'] ) && wp_verify_nonce( $_POST['_wpnonce'], 'html_notice_widget_action' ) ) {
 			switch ( $_POST['action'] ) {
 				case 'add_site':
@@ -55,7 +62,7 @@ class PHP_Admin {
 	 */
 	private function handle_add_site() {
 		$product = sanitize_text_field( $_POST['product'] ?? '' );
-		$enabled = isset( $_POST['enabled'] ) ? 1 : 0;
+		$enabled = 1; // Always enabled per requirements
 
 		if ( empty( $product ) ) {
 			$this->add_admin_notice( 'Product name is required.', 'error' );
@@ -69,7 +76,6 @@ class PHP_Admin {
 
 		if ( $site_id ) {
 			$this->add_admin_notice( 'Product created successfully!', 'success' );
-			// Redirect to prevent form resubmission
 			wp_redirect( remove_query_arg( ['action', 'site_id', 'content_id'] ) );
 			exit;
 		} else {
@@ -83,7 +89,7 @@ class PHP_Admin {
 	private function handle_edit_site() {
 		$site_id = sanitize_text_field( $_POST['site_id'] ?? '' );
 		$product = sanitize_text_field( $_POST['product'] ?? '' );
-		$enabled = isset( $_POST['enabled'] ) ? 1 : 0;
+		$enabled = 1; // Always enabled per requirements
 
 		if ( empty( $site_id ) || empty( $product ) ) {
 			$this->add_admin_notice( 'Site ID and product name are required.', 'error' );
@@ -95,7 +101,6 @@ class PHP_Admin {
 			'enabled' => $enabled,
 		])) {
 			$this->add_admin_notice( 'Product updated successfully!', 'success' );
-			// Redirect to prevent form resubmission
 			wp_redirect( remove_query_arg( ['action', 'site_id', 'content_id'] ) );
 			exit;
 		} else {
@@ -125,11 +130,11 @@ class PHP_Admin {
 	 * Handle add content
 	 */
 	private function handle_add_content() {
-		$site_id = sanitize_text_field( $_POST['site_id'] ?? '' );
-		$title = sanitize_text_field( $_POST['content_title'] ?? '' );
+		$site_id     = sanitize_text_field( $_POST['site_id'] ?? '' );
+		$title       = sanitize_text_field( $_POST['content_title'] ?? '' );
 		$description = sanitize_text_field( $_POST['content_description'] ?? '' );
-		$content = wp_kses_post( $_POST['content_html'] ?? '' );
-		$enabled = isset( $_POST['content_enabled'] ) ? 1 : 0;
+		$content     = wp_kses_post( $_POST['content_html'] ?? '' );
+		$enabled     = isset( $_POST['content_enabled'] ) ? 1 : 0;
 
 		if ( empty( $site_id ) || empty( $title ) || empty( $content ) ) {
 			$this->add_admin_notice( 'Product ID, title, and content are required.', 'error' );
@@ -143,11 +148,20 @@ class PHP_Admin {
 			'enabled'        => $enabled,
 			'schedule_start' => isset( $_POST['schedule_start'] ) ? sanitize_text_field( $_POST['schedule_start'] ) : '',
 			'schedule_end'   => isset( $_POST['schedule_end'] ) ? sanitize_text_field( $_POST['schedule_end'] ) : '',
+			'targeting'      => [
+				'pro_users'      => sanitize_text_field( $_POST['targeting_pro_users'] ?? 'all' ),
+				'plugin_version' => [
+					'operator' => sanitize_text_field( $_POST['targeting_version_op'] ?? '' ),
+					'version'  => sanitize_text_field( $_POST['targeting_version'] ?? '' ),
+				],
+				'user_roles'     => isset( $_POST['targeting_roles'] ) && is_array( $_POST['targeting_roles'] )
+					? array_map( 'sanitize_key', $_POST['targeting_roles'] )
+					: [],
+			],
 		]);
 
 		if ( $content_id ) {
 			$this->add_admin_notice( 'Content added successfully!', 'success' );
-			// Redirect to prevent form resubmission
 			wp_redirect( remove_query_arg( ['action', 'site_id', 'content_id'] ) );
 			exit;
 		} else {
@@ -159,12 +173,12 @@ class PHP_Admin {
 	 * Handle edit content
 	 */
 	private function handle_edit_content() {
-		$site_id = sanitize_text_field( $_POST['site_id'] ?? '' );
-		$content_id = sanitize_text_field( $_POST['content_id'] ?? '' );
-		$title = sanitize_text_field( $_POST['content_title'] ?? '' );
+		$site_id     = sanitize_text_field( $_POST['site_id'] ?? '' );
+		$content_id  = sanitize_text_field( $_POST['content_id'] ?? '' );
+		$title       = sanitize_text_field( $_POST['content_title'] ?? '' );
 		$description = sanitize_text_field( $_POST['content_description'] ?? '' );
-		$content = wp_kses_post( $_POST['content_html'] ?? '' );
-		$enabled = isset( $_POST['content_enabled'] ) ? 1 : 0;
+		$content     = wp_kses_post( $_POST['content_html'] ?? '' );
+		$enabled     = isset( $_POST['content_enabled'] ) ? 1 : 0;
 
 		if ( empty( $site_id ) || empty( $content_id ) || empty( $title ) || empty( $content ) ) {
 			$this->add_admin_notice( 'All fields are required.', 'error' );
@@ -178,9 +192,18 @@ class PHP_Admin {
 			'enabled'        => $enabled,
 			'schedule_start' => isset( $_POST['schedule_start'] ) ? sanitize_text_field( $_POST['schedule_start'] ) : '',
 			'schedule_end'   => isset( $_POST['schedule_end'] ) ? sanitize_text_field( $_POST['schedule_end'] ) : '',
+			'targeting'      => [
+				'pro_users'      => sanitize_text_field( $_POST['targeting_pro_users'] ?? 'all' ),
+				'plugin_version' => [
+					'operator' => sanitize_text_field( $_POST['targeting_version_op'] ?? '' ),
+					'version'  => sanitize_text_field( $_POST['targeting_version'] ?? '' ),
+				],
+				'user_roles'     => isset( $_POST['targeting_roles'] ) && is_array( $_POST['targeting_roles'] )
+					? array_map( 'sanitize_key', $_POST['targeting_roles'] )
+					: [],
+			],
 		])) {
 			$this->add_admin_notice( 'Content updated successfully!', 'success' );
-			// Redirect to prevent form resubmission
 			wp_redirect( remove_query_arg( ['action', 'site_id', 'content_id'] ) );
 			exit;
 		} else {
@@ -192,7 +215,7 @@ class PHP_Admin {
 	 * Handle delete content
 	 */
 	private function handle_delete_content() {
-		$site_id = sanitize_text_field( $_POST['site_id'] ?? '' );
+		$site_id    = sanitize_text_field( $_POST['site_id'] ?? '' );
 		$content_id = sanitize_text_field( $_POST['content_id'] ?? '' );
 
 		if ( empty( $site_id ) || empty( $content_id ) ) {
@@ -207,515 +230,783 @@ class PHP_Admin {
 		}
 	}
 
+	/* =========================================================================
+	   Render — Main Page
+	   ========================================================================= */
+
 	/**
 	 * Render the admin page
 	 */
 	public function render_admin_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( 'Unauthorized' );
+			wp_die( esc_html__( 'Unauthorized', 'html-notice-widget' ) );
 		}
 
 		$sites = PHP_Utils::get_all_sites();
-
+		$stats = PHP_Utils::get_stats();
 		?>
-		<div class="wrap">
-			<h1>HTML Notice Widget</h1>
-
-			<?php
-			// Display stats
-			$stats = PHP_Utils::get_stats();
-			?>
-			<div class="html-notice-widget-stats" style="background: #f0f0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-				<strong>Statistics:</strong>
-				<?php echo $stats['total_sites']; ?> Product (<?php echo $stats['enabled_sites']; ?> enabled) |
-				<?php echo $stats['total_contents']; ?> Offers (<?php echo $stats['enabled_contents']; ?> enabled)
-			</div>
+		<div class="hnw-wrap">
 
 			<?php $this->render_admin_notices(); ?>
 
-			<?php $this->render_sites_list( $sites ); ?>
+			<!-- Hero Header -->
+			<div class="hnw-hero">
+				<div class="hnw-hero__info">
+					<span class="hnw-hero__icon"><?php echo self::svg_icon( 'megaphone', 38 ); ?></span>
+					<div>
+						<h1 class="hnw-hero__title">HTML Notice Widget</h1>
+						<p class="hnw-hero__subtitle">Centrally manage and distribute HTML notices across your WordPress products.</p>
+					</div>
+				</div>
+				<div class="hnw-hero__actions">
+					<button type="button" class="hnw-btn hnw-btn--hero" id="hnw-add-product-btn"
+						data-hnw-tooltip="Create a new product endpoint" data-tooltip-pos="bottom"><?php echo self::svg_icon( 'plus', 14 ); ?> Add Product</button>
+				</div>
+			</div>
+
+			<!-- Stats Ribbon -->
+			<div class="hnw-stats">
+				<div class="hnw-stat-card">
+					<div class="hnw-stat-card__icon" style="background:var(--hnw-brand-bg);color:var(--hnw-brand);"><?php echo self::svg_icon( 'package', 20 ); ?></div>
+					<div>
+						<div class="hnw-stat-card__value"><?php echo absint( $stats['total_sites'] ); ?></div>
+						<div class="hnw-stat-card__label">Products</div>
+					</div>
+				</div>
+				<div class="hnw-stat-card">
+					<div class="hnw-stat-card__icon" style="background:var(--hnw-success-bg);color:var(--hnw-success);"><?php echo self::svg_icon( 'campaign', 20 ); ?></div>
+					<div>
+						<div class="hnw-stat-card__value"><?php echo absint( $stats['total_contents'] ); ?></div>
+						<div class="hnw-stat-card__label">Campaigns</div>
+					</div>
+				</div>
+				<div class="hnw-stat-card">
+					<div class="hnw-stat-card__icon" style="background:var(--hnw-accent-light);color:var(--hnw-accent);"><?php echo self::svg_icon( 'check', 20 ); ?></div>
+					<div>
+						<div class="hnw-stat-card__value"><?php echo absint( $stats['enabled_contents'] ); ?></div>
+						<div class="hnw-stat-card__label">Active</div>
+					</div>
+				</div>
+				<div class="hnw-stat-card">
+					<div class="hnw-stat-card__icon" style="background:var(--hnw-warning-bg);color:#b7791f;"><?php echo self::svg_icon( 'pause', 20 ); ?></div>
+					<div>
+						<div class="hnw-stat-card__value"><?php echo absint( $stats['total_contents'] - $stats['enabled_contents'] ); ?></div>
+						<div class="hnw-stat-card__label">Inactive</div>
+					</div>
+				</div>
+			</div>
+
+			<?php if ( empty( $sites ) ): ?>
+				<!-- Empty State -->
+				<div class="hnw-empty">
+					<div class="hnw-empty__icon"><?php echo self::svg_icon( 'inbox', 48 ); ?></div>
+					<h2 class="hnw-empty__title">No products yet</h2>
+					<p class="hnw-empty__text">Create your first product to start distributing HTML notices to your plugins.</p>
+					<button type="button" class="hnw-btn hnw-btn--primary" id="hnw-add-product-empty"><?php echo self::svg_icon( 'plus', 14 ); ?> Create First Product</button>
+				</div>
+			<?php else: ?>
+				<!-- Toolbar -->
+				<div class="hnw-toolbar">
+					<h2 class="hnw-toolbar__title">Your Products</h2>
+				</div>
+
+				<!-- Cards Grid -->
+				<div class="hnw-grid">
+					<?php foreach ( $sites as $site ): ?>
+						<?php $this->render_site_card( $site ); ?>
+					<?php endforeach; ?>
+				</div>
+			<?php endif; ?>
+
+			<?php // ── All Modals ── ?>
+			<?php $this->render_modal_add_product(); ?>
+			<?php $this->render_modal_edit_product(); ?>
+			<?php $this->render_modal_add_campaign(); ?>
+			<?php $this->render_modal_edit_campaign(); ?>
+			<?php $this->render_modal_user_doc(); ?>
+
+		</div><!-- .hnw-wrap -->
+		<?php
+	}
+
+	/* =========================================================================
+	   Render — Site Card
+	   ========================================================================= */
+
+	/**
+	 * Render a single site/product card
+	 *
+	 * @param array $site Site data.
+	 */
+	private function render_site_card( $site ) {
+		$api_url       = home_url( '/wp-json/html-notice-widget/v1/content/' . $site['endpoint'] );
+		$content_count = count( $site['contents'] ?? [] );
+		?>
+		<div class="hnw-card">
+			<!-- Card Header -->
+			<div class="hnw-card__header">
+				<h3 class="hnw-card__title">
+					<?php echo esc_html( $site['product'] ); ?>
+					<span class="hnw-badge hnw-badge--enabled"><?php echo self::svg_icon( 'circle-dot', 10 ); ?> Active</span>
+				</h3>
+			</div>
+
+			<!-- Card Body -->
+			<div class="hnw-card__body">
+				<div class="hnw-endpoint" data-hnw-tooltip="This slug is used in the REST API URL" data-tooltip-pos="right">
+					/ <?php echo esc_html( $site['endpoint'] ); ?>
+				</div>
+
+				<div class="hnw-api-block">
+					<div>
+						<div class="hnw-api-block__label">API Endpoint</div>
+						<div class="hnw-api-block__url"><?php echo esc_url( $api_url ); ?></div>
+					</div>
+					<button type="button" class="hnw-btn hnw-btn--ghost hnw-btn--sm hnw-api-copy"
+						data-hnw-tooltip="Copy API URL to clipboard" data-tooltip-pos="left"><?php echo self::svg_icon( 'clipboard', 14 ); ?> Copy</button>
+				</div>
+			</div>
+
+			<!-- Campaigns Section -->
+			<div class="hnw-campaigns">
+				<div class="hnw-campaigns__header">
+					<h4 class="hnw-campaigns__title">Campaigns (<?php echo absint( $content_count ); ?>)</h4>
+					<button type="button" class="hnw-btn hnw-btn--ghost hnw-btn--sm hnw-add-content"
+						data-site-id="<?php echo esc_attr( $site['id'] ); ?>"
+						data-site-name="<?php echo esc_attr( $site['product'] ); ?>"
+						data-hnw-tooltip="Create a new campaign for this product" data-tooltip-pos="left"><?php echo self::svg_icon( 'plus', 12 ); ?> Add</button>
+				</div>
+
+				<?php if ( ! empty( $site['contents'] ) ): ?>
+					<div class="hnw-campaigns__list">
+						<?php foreach ( $site['contents'] as $content ): ?>
+							<?php $this->render_campaign_item( $site, $content ); ?>
+						<?php endforeach; ?>
+					</div>
+				<?php else: ?>
+					<p class="hnw-campaigns__empty">No campaigns added yet.</p>
+				<?php endif; ?>
+			</div>
+
+			<!-- Card Footer -->
+			<div class="hnw-card__footer">
+				<button type="button" class="hnw-btn hnw-btn--secondary hnw-btn--sm hnw-user-doc-trigger"
+					data-product="<?php echo esc_attr( $site['product'] ); ?>"
+					data-endpoint="<?php echo esc_attr( $site['endpoint'] ); ?>"
+					data-api-url="<?php echo esc_url( $api_url ); ?>"
+					data-hnw-tooltip="View SDK integration instructions" data-tooltip-pos="top"><?php echo self::svg_icon( 'book', 14 ); ?> How To Integrate</button>
+
+				<button type="button" class="hnw-btn hnw-btn--secondary hnw-btn--sm hnw-edit-site"
+					data-site-id="<?php echo esc_attr( $site['id'] ); ?>"
+					data-site-name="<?php echo esc_attr( $site['product'] ); ?>"><?php echo self::svg_icon( 'edit', 14 ); ?> Edit</button>
+
+				<form method="post" class="hnw-inline-form" onsubmit="return confirm('Delete this product and all its campaigns?');">
+					<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
+					<input type="hidden" name="action" value="delete_site">
+					<input type="hidden" name="site_id" value="<?php echo esc_attr( $site['id'] ); ?>">
+					<button type="submit" class="hnw-btn hnw-btn--danger hnw-btn--sm"><?php echo self::svg_icon( 'trash', 14 ); ?> Delete</button>
+				</form>
+			</div>
+		</div>
+		<?php
+	}
+
+	/* =========================================================================
+	   Render — Campaign Item
+	   ========================================================================= */
+
+	/**
+	 * Render a single campaign item inside a site card
+	 *
+	 * @param array $site    Site data.
+	 * @param array $content Content data.
+	 */
+	private function render_campaign_item( $site, $content ) {
+		$schedule_status = PHP_Utils::get_schedule_status( $content );
+		$is_expired      = strpos( $schedule_status, 'Expired' ) !== false;
+		?>
+		<div class="hnw-campaign-item">
+			<div class="hnw-campaign-item__info">
+				<p class="hnw-campaign-item__name">
+					<?php echo esc_html( $content['title'] ); ?>
+					<?php if ( $content['enabled'] ): ?>
+						<span class="hnw-badge hnw-badge--enabled"><?php echo self::svg_icon( 'circle-dot', 10 ); ?> Enabled</span>
+					<?php else: ?>
+						<span class="hnw-badge hnw-badge--disabled"><?php echo self::svg_icon( 'circle-o', 10 ); ?> Disabled</span>
+					<?php endif; ?>
+				</p>
+
+				<?php if ( ! empty( $content['description'] ) ): ?>
+					<p class="hnw-campaign-item__desc"><?php echo esc_html( $content['description'] ); ?></p>
+				<?php endif; ?>
+
+				<?php if ( ! empty( $schedule_status ) ): ?>
+					<div class="hnw-campaign-item__schedule">
+						<span class="hnw-badge <?php echo $is_expired ? 'hnw-badge--expired' : 'hnw-badge--scheduled'; ?>">
+							<?php echo self::svg_icon( 'calendar', 12 ); ?> <?php echo esc_html( $schedule_status ); ?>
+						</span>
+					</div>
+				<?php endif; ?>
+
+				<?php
+				// Targeting badges
+				$targeting = $content['targeting'] ?? [];
+				$has_targeting = false;
+				if ( ! empty( $targeting ) ) :
+					$pro_label = '';
+					if ( ( $targeting['pro_users'] ?? 'all' ) === 'free_only' ) {
+						$pro_label = 'Free Only';
+					} elseif ( ( $targeting['pro_users'] ?? 'all' ) === 'pro_only' ) {
+						$pro_label = 'Pro Only';
+					}
+
+					$version_label = '';
+					if ( ! empty( $targeting['plugin_version']['operator'] ) && ! empty( $targeting['plugin_version']['version'] ) ) {
+						$op_labels = [ 'lt' => '<', 'lte' => '≤', 'eq' => '=', 'gte' => '≥', 'gt' => '>' ];
+						$op_sym = $op_labels[ $targeting['plugin_version']['operator'] ] ?? '';
+						$version_label = 'v' . $op_sym . $targeting['plugin_version']['version'];
+					}
+
+					$roles_label = '';
+					if ( ! empty( $targeting['user_roles'] ) ) {
+						$roles_label = implode( ', ', array_map( 'ucfirst', $targeting['user_roles'] ) );
+					}
+
+					if ( $pro_label || $version_label || $roles_label ) :
+						$has_targeting = true;
+					?>
+					<div class="hnw-campaign-item__targeting">
+						<?php if ( $pro_label ): ?>
+							<span class="hnw-badge hnw-badge--targeting"><?php echo self::svg_icon( 'package', 10 ); ?> <?php echo esc_html( $pro_label ); ?></span>
+						<?php endif; ?>
+						<?php if ( $version_label ): ?>
+							<span class="hnw-badge hnw-badge--targeting"><?php echo self::svg_icon( 'info', 10 ); ?> <?php echo esc_html( $version_label ); ?></span>
+						<?php endif; ?>
+						<?php if ( $roles_label ): ?>
+							<span class="hnw-badge hnw-badge--targeting"><?php echo self::svg_icon( 'edit', 10 ); ?> <?php echo esc_html( $roles_label ); ?></span>
+						<?php endif; ?>
+					</div>
+					<?php endif; ?>
+				<?php endif; ?>
+			</div>
+
+			<div class="hnw-campaign-item__actions">
+				<button type="button" class="hnw-btn hnw-btn--ghost hnw-btn--sm hnw-edit-content"
+					data-site-id="<?php echo esc_attr( $site['id'] ); ?>"
+					data-content-id="<?php echo esc_attr( $content['id'] ); ?>"
+					data-content-title="<?php echo esc_attr( $content['title'] ); ?>"
+					data-content-description="<?php echo esc_attr( $content['description'] ?? '' ); ?>"
+					data-content-html="<?php echo esc_attr( $content['content'] ); ?>"
+					data-content-enabled="<?php echo $content['enabled'] ? '1' : '0'; ?>"
+					data-schedule-start="<?php echo esc_attr( $content['schedule_start'] ?? '' ); ?>"
+					data-schedule-end="<?php echo esc_attr( $content['schedule_end'] ?? '' ); ?>"
+				data-targeting-pro="<?php echo esc_attr( $content['targeting']['pro_users'] ?? 'all' ); ?>"
+				data-targeting-version-op="<?php echo esc_attr( $content['targeting']['plugin_version']['operator'] ?? '' ); ?>"
+				data-targeting-version="<?php echo esc_attr( $content['targeting']['plugin_version']['version'] ?? '' ); ?>"
+				data-targeting-roles="<?php echo esc_attr( implode( ',', $content['targeting']['user_roles'] ?? [] ) ); ?>"><?php echo self::svg_icon( 'edit', 14 ); ?></button>
+
+				<form method="post" class="hnw-inline-form" onsubmit="return confirm('Delete this campaign?');">
+					<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
+					<input type="hidden" name="action" value="delete_content">
+					<input type="hidden" name="site_id" value="<?php echo esc_attr( $site['id'] ); ?>">
+					<input type="hidden" name="content_id" value="<?php echo esc_attr( $content['id'] ); ?>">
+					<button type="submit" class="hnw-btn hnw-btn--ghost hnw-btn--sm" style="color:var(--hnw-error);"><?php echo self::svg_icon( 'trash', 14 ); ?></button>
+				</form>
+			</div>
+		</div>
+		<?php
+	}
+
+	/* =========================================================================
+	   Render — Modals (Centralized Structure)
+	   ========================================================================= */
+
+	/**
+	 * Render Add Product modal
+	 */
+	private function render_modal_add_product() {
+		?>
+		<div id="hnw-modal-add-product" class="hnw-modal" style="display:none;">
+			<div class="hnw-modal__backdrop"></div>
+			<div class="hnw-modal__panel">
+				<div class="hnw-modal__header">
+					<h2 class="hnw-modal__title">Add New Product</h2>
+					<button type="button" class="hnw-modal__close">&times;</button>
+				</div>
+				<form method="post">
+					<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
+					<input type="hidden" name="action" value="add_site">
+					<div class="hnw-modal__body">
+						<div class="hnw-field">
+							<label class="hnw-field__label" for="hnw-add-product-name">
+								Product Name <span class="hnw-field__required">*</span>
+							</label>
+							<input type="text" id="hnw-add-product-name" name="product" class="hnw-input" required
+								data-hnw-tooltip="This generates the API endpoint slug (e.g. 'My Plugin' → /content/my-plugin)" data-tooltip-pos="right">
+							<p class="hnw-field__hint">The slug will be auto-generated from this name for the REST endpoint.</p>
+						</div>
+					</div>
+					<div class="hnw-modal__footer">
+						<button type="button" class="hnw-btn hnw-btn--secondary hnw-modal-cancel">Cancel</button>
+						<button type="submit" class="hnw-btn hnw-btn--primary">Create Product</button>
+					</div>
+				</form>
+			</div>
 		</div>
 		<?php
 	}
 
 	/**
-	 * Render sites list
+	 * Render Edit Product modal
 	 */
-	private function render_sites_list( $sites ) {
+	private function render_modal_edit_product() {
 		?>
-		<div class="html-notice-widget-header">
-			<button type="button" class="button button-primary" id="add-site-modal-trigger">Add New Product</button>
-		</div>
-
-		<?php if ( empty( $sites ) ): ?>
-			<div class="html-notice-widget-empty-state">
-				<p>No Product created yet.</p>
-				<p><button type="button" class="button button-primary" id="add-site-modal-trigger-empty">Create your first product</button></p>
-			</div>
-		<?php else: ?>
-			<div class="html-notice-widget-sites-grid">
-				<?php foreach ( $sites as $site ): ?>
-					<div class="html-notice-widget-site-card">
-						<div class="site-header">
-							<h3><?php echo esc_html( $site['product'] ); ?></h3>
-							<span class="status <?php echo $site['enabled'] ? 'enabled' : 'disabled'; ?>">
-								<?php echo $site['enabled'] ? '✓ Enabled' : '✗ Disabled'; ?>
-							</span>
-						</div>
-
-						<div class="site-info">
-							<p><strong>Endpoint:</strong> <code><?php echo esc_html( $site['endpoint'] ); ?></code></p>
-							<p><strong>API URL:</strong></p>
-							<div class="api-url">
-								<?php echo esc_url( home_url( '/wp-json/html-notice-widget/v1/content/' . $site['endpoint'] ) ); ?>
-							</div>
-						</div>
-
-						<div class="contents-section">
-							<div class="contents-header">
-								<h4>Campaigns (<?php echo count( $site['contents'] ?? [] ); ?>)</h4>
-								<button type="button" class="button button-small add-content-trigger"
-										data-site-id="<?php echo esc_attr( $site['id'] ); ?>"
-										data-site-name="<?php echo esc_attr( $site['product'] ); ?>">Add Content</button>
-							</div>
-
-							<?php if ( ! empty( $site['contents'] ) ): ?>
-								<div class="contents-list">
-									<?php foreach ( $site['contents'] as $content ): ?>
-										<div class="content-item">
-											<div class="content-info">
-												<strong><?php echo esc_html( $content['title'] ); ?></strong>
-												<span class="content-status <?php echo $content['enabled'] ? 'enabled' : 'disabled'; ?>">
-													<?php echo $content['enabled'] ? '✓ Offer Enabled' : '✗ Offer Disabled'; ?>
-												</span>
-											</div>
-
-											<?php if ( ! empty( $content['description'] ) ): ?>
-												<div class="content-description">
-													<em>(<?php echo esc_html( $content['description'] ); ?>)</em>
-												</div>
-											<?php endif; ?>
-
-											<?php
-											$schedule_status = PHP_Utils::get_schedule_status( $content );
-											if ( ! empty( $schedule_status ) ) :
-											?>
-												<div class="content-schedule">
-													<span class="schedule-badge <?php echo strpos( $schedule_status, 'Expired' ) !== false ? 'expired' : 'active'; ?>">
-														📅 <?php echo esc_html( $schedule_status ); ?>
-													</span>
-												</div>
-											<?php endif; ?>
-
-											<div class="content-actions">
-												<button type="button" class="button button-small edit-content-trigger"
-														data-site-id="<?php echo esc_attr( $site['id'] ); ?>"
-														data-content-id="<?php echo esc_attr( $content['id'] ); ?>"
-														data-content-title="<?php echo esc_attr( $content['title'] ); ?>"
-														data-content-description="<?php echo esc_attr( $content['description'] ?? '' ); ?>"
-														data-content-html="<?php echo esc_attr( $content['content'] ); ?>"
-														data-content-enabled="<?php echo $content['enabled'] ? '1' : '0'; ?>"
-														data-schedule-start="<?php echo esc_attr( $content['schedule_start'] ?? '' ); ?>"
-														data-schedule-end="<?php echo esc_attr( $content['schedule_end'] ?? '' ); ?>">Edit</button>
-												<form method="post" style="display: inline;margin-bottom:0;" onsubmit="return confirm('Are you sure you want to delete this content?');">
-													<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
-													<input type="hidden" name="action" value="delete_content">
-													<input type="hidden" name="site_id" value="<?php echo esc_attr( $site['id'] ); ?>">
-													<input type="hidden" name="content_id" value="<?php echo esc_attr( $content['id'] ); ?>">
-													<button type="submit" class="button button-small button-danger">Delete</button>
-												</form>
-											</div>
-										</div>
-									<?php endforeach; ?>
-								</div>
-							<?php else: ?>
-								<p class="no-contents">No campaign added yet.</p>
-							<?php endif; ?>
-						</div>
-
-						<div class="site-actions">
-							<button type="button" class="button docs-trigger"
-									data-product="<?php echo esc_attr( $site['product'] ); ?>"
-									data-endpoint="<?php echo esc_attr( $site['endpoint'] ); ?>"
-									data-api-url="<?php echo esc_url( home_url( '/wp-json/html-notice-widget/v1/content/' . $site['endpoint'] ) ); ?>">📖 How To Integrate</button>
-							<button type="button" class="button edit-site-trigger"
-									data-site-id="<?php echo esc_attr( $site['id'] ); ?>"
-									data-site-name="<?php echo esc_attr( $site['product'] ); ?>"
-									data-site-enabled="<?php echo $site['enabled'] ? '1' : '0'; ?>">Edit Product</button>
-							<form method="post" style="display: inline;margin-bottom: 0;" onsubmit="return confirm('Are you sure you want to delete this product and all its campaign?');">
-								<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
-								<input type="hidden" name="action" value="delete_site">
-								<input type="hidden" name="site_id" value="<?php echo esc_attr( $site['id'] ); ?>">
-								<button type="submit" class="button button-danger" style="margin-bottom: 0">Delete Product</button>
-							</form>
-						</div>
-					</div>
-				<?php endforeach; ?>
-			</div>
-		<?php endif; ?>
-
-		<!-- Add Site Modal -->
-		<div id="add-site-modal" class="html-notice-widget-modal" style="display: none;">
-			<div class="modal-backdrop"></div>
-			<div class="modal-content">
-				<div class="modal-header">
-					<h2>Add New Product</h2>
-					<button type="button" class="modal-close">&times;</button>
+		<div id="hnw-modal-edit-product" class="hnw-modal" style="display:none;">
+			<div class="hnw-modal__backdrop"></div>
+			<div class="hnw-modal__panel">
+				<div class="hnw-modal__header">
+					<h2 class="hnw-modal__title">Edit Product</h2>
+					<button type="button" class="hnw-modal__close">&times;</button>
 				</div>
-				<form method="post" class="html-notice-widget-form" id="add-site-form">
-					<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
-					<input type="hidden" name="action" value="add_site">
-
-					<table class="form-table">
-						<tr>
-							<th scope="row"><label for="product">Product Name <span class="required">*</span></label></th>
-							<td>
-								<input type="text" id="product" name="product" class="regular-text" required>
-								<p class="description">This will be used to generate the API endpoint (e.g., "my-product" becomes "/content/my-product")</p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row">Status</th>
-							<td>
-								<label>
-									<input type="checkbox" name="enabled" value="1">
-									Enable this product
-								</label>
-							</td>
-						</tr>
-					</table>
-
-					<div class="modal-footer">
-						<input type="submit" class="button button-primary" value="Create Product">
-						<button type="button" class="button modal-cancel">Cancel</button>
-					</div>
-				</form>
-			</div>
-		</div>
-
-		<!-- Edit Site Modal -->
-		<div id="edit-site-modal" class="html-notice-widget-modal" style="display: none;">
-			<div class="modal-backdrop"></div>
-			<div class="modal-content">
-				<div class="modal-header">
-					<h2>Edit Product</h2>
-					<button type="button" class="modal-close">&times;</button>
-				</div>
-				<form method="post" class="html-notice-widget-form" id="edit-site-form">
+				<form method="post">
 					<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
 					<input type="hidden" name="action" value="edit_site">
-					<input type="hidden" name="site_id" id="edit-site-id">
-
-					<table class="form-table">
-						<tr>
-							<th scope="row"><label for="edit-product">Product Name <span class="required">*</span></label></th>
-							<td>
-								<input type="text" id="edit-product" name="product" class="regular-text" required>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row">Status</th>
-							<td>
-								<label>
-									<input type="checkbox" id="edit-enabled" name="enabled" value="1">
-									Enable this product
-								</label>
-							</td>
-						</tr>
-					</table>
-
-					<div class="modal-footer">
-						<input type="submit" class="button button-primary" value="Update Product">
-						<button type="button" class="button modal-cancel">Cancel</button>
+					<input type="hidden" name="site_id" id="hnw-edit-site-id">
+					<div class="hnw-modal__body">
+						<div class="hnw-field">
+							<label class="hnw-field__label" for="hnw-edit-product">
+								Product Name <span class="hnw-field__required">*</span>
+							</label>
+							<input type="text" id="hnw-edit-product" name="product" class="hnw-input" required>
+						</div>
+					</div>
+					<div class="hnw-modal__footer">
+						<button type="button" class="hnw-btn hnw-btn--secondary hnw-modal-cancel">Cancel</button>
+						<button type="submit" class="hnw-btn hnw-btn--primary">Update Product</button>
 					</div>
 				</form>
 			</div>
 		</div>
+		<?php
+	}
 
-		<!-- Add Content Modal -->
-		<div id="add-content-modal" class="html-notice-widget-modal" style="display: none;">
-			<div class="modal-backdrop"></div>
-			<div class="modal-content">
-				<div class="modal-header">
-					<h2>Add Campaign to "<span id="add-content-site-name"></span>"</h2>
-					<button type="button" class="modal-close">&times;</button>
+	/**
+	 * Render Add Campaign modal
+	 */
+	private function render_modal_add_campaign() {
+		?>
+		<div id="hnw-modal-add-campaign" class="hnw-modal" style="display:none;">
+			<div class="hnw-modal__backdrop"></div>
+			<div class="hnw-modal__panel">
+				<div class="hnw-modal__header">
+					<h2 class="hnw-modal__title">Add Campaign to "<span id="hnw-add-content-site-name"></span>"</h2>
+					<button type="button" class="hnw-modal__close">&times;</button>
 				</div>
-				<form method="post" class="html-notice-widget-form" id="add-content-form">
+				<form method="post">
 					<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
 					<input type="hidden" name="action" value="add_content">
-					<input type="hidden" name="site_id" id="add-content-site-id">
-
-					<table class="form-table">
-						<tr>
-							<th scope="row"><label for="content_title">Campaign Title <span class="required">*</span></label></th>
-							<td>
-								<input type="text" id="content_title" name="content_title" class="regular-text" required>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label for="content_description">Description</label></th>
-							<td>
-								<input type="text" id="content_description" name="content_description" class="regular-text" placeholder="Brief description or notes about this campaign">
-								<p class="description">Optional description to help identify this campaign.</p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label for="content_html">Campaign Content <span class="required">*</span></label></th>
-							<td>
-								<textarea id="content_html" name="content_html" rows="10" cols="50" class="large-text code" required></textarea>
-								<p class="description">Enter your HTML content here.</p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label>Schedule</label></th>
-							<td>
-								<div class="schedule-fields">
-									<div class="schedule-field">
-										<label for="schedule_start">Start Date:</label>
-										<input type="datetime-local" id="schedule_start" name="schedule_start" class="regular-text">
-									</div>
-									<div class="schedule-field">
-										<label for="schedule_end">End Date:</label>
-										<input type="datetime-local" id="schedule_end" name="schedule_end" class="regular-text">
-									</div>
+					<input type="hidden" name="site_id" id="hnw-add-content-site-id">
+					<div class="hnw-modal__body">
+						<div class="hnw-field">
+							<label class="hnw-field__label" for="hnw-add-ct-title">
+								Campaign Title <span class="hnw-field__required">*</span>
+							</label>
+							<input type="text" id="hnw-add-ct-title" name="content_title" class="hnw-input" required>
+						</div>
+						<div class="hnw-field">
+							<label class="hnw-field__label" for="hnw-add-ct-desc">Description</label>
+							<input type="text" id="hnw-add-ct-desc" name="content_description" class="hnw-input"
+								placeholder="Brief notes about this campaign">
+							<p class="hnw-field__hint">Optional internal note for your reference.</p>
+						</div>
+						<div class="hnw-field">
+							<label class="hnw-field__label" for="hnw-add-ct-html">
+								HTML Content <span class="hnw-field__required">*</span>
+							</label>
+							<textarea id="hnw-add-ct-html" name="content_html" class="hnw-textarea" required></textarea>
+							<p class="hnw-field__hint">The raw HTML that will be rendered as an admin notice on remote sites.</p>
+						</div>
+						<div class="hnw-field">
+							<label class="hnw-field__label">Schedule</label>
+							<div class="hnw-schedule-row">
+								<div class="hnw-schedule-field">
+									<label class="hnw-field__label" for="hnw-add-sched-start" style="font-weight:400;font-size:12px;">
+										Start Date
+									</label>
+									<input type="datetime-local" id="hnw-add-sched-start" name="schedule_start" class="hnw-datetime"
+										data-hnw-tooltip="Leave empty to start immediately" data-tooltip-pos="top">
 								</div>
-								<p class="description">Optional. Set a date range for this campaign. Leave empty to show indefinitely. Campaign will be auto-disabled after the end date.</p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row">Status</th>
-							<td>
-								<label>
-									<input type="checkbox" name="content_enabled" value="1" checked>
-									Enable this offer
-								</label>
-							</td>
-						</tr>
-					</table>
+								<div class="hnw-schedule-field">
+									<label class="hnw-field__label" for="hnw-add-sched-end" style="font-weight:400;font-size:12px;">
+										End Date
+									</label>
+									<input type="datetime-local" id="hnw-add-sched-end" name="schedule_end" class="hnw-datetime"
+										data-hnw-tooltip="Campaign will auto-disable after this date" data-tooltip-pos="top">
+								</div>
+							</div>
+							<p class="hnw-field__hint">Optional. Leave both empty to show this campaign indefinitely.</p>
+						</div>
+						<div class="hnw-field">
+							<label class="hnw-toggle">
+								<input type="checkbox" name="content_enabled" value="1" checked>
+								<span class="hnw-toggle__slider"></span>
+								Enable this campaign
+							</label>
+						</div>
 
-					<div class="modal-footer">
-						<input type="submit" class="button button-primary" value="Add Content">
-						<button type="button" class="button modal-cancel">Cancel</button>
+						<!-- Targeting Section -->
+						<div class="hnw-targeting-section">
+							<button type="button" class="hnw-targeting-toggle">
+								<?php echo self::svg_icon( 'package', 14 ); ?> Targeting Rules
+								<span class="hnw-targeting-toggle__arrow"><?php echo self::svg_icon( 'download', 12 ); ?></span>
+							</button>
+							<div class="hnw-targeting-body" style="display:none;">
+								<p class="hnw-field__hint" style="margin-bottom:12px;">Control who sees this campaign on the remote site.</p>
+
+								<div class="hnw-field">
+									<label class="hnw-field__label" for="hnw-add-targeting-pro">Audience</label>
+									<select id="hnw-add-targeting-pro" name="targeting_pro_users" class="hnw-input">
+										<option value="all">All Users</option>
+										<option value="free_only">Free Users Only</option>
+										<option value="pro_only">Pro Users Only</option>
+									</select>
+									<p class="hnw-field__hint">Show this notice only to Free or Pro plugin users.</p>
+								</div>
+
+								<div class="hnw-field">
+									<label class="hnw-field__label">Plugin Version</label>
+									<div class="hnw-version-row">
+										<select name="targeting_version_op" class="hnw-input hnw-input--sm">
+											<option value="">No filter</option>
+											<option value="lt">&lt; Less than</option>
+											<option value="lte">&le; Less or equal</option>
+											<option value="eq">= Equal</option>
+											<option value="gte">&ge; Greater or equal</option>
+											<option value="gt">&gt; Greater than</option>
+										</select>
+										<input type="text" name="targeting_version" class="hnw-input hnw-input--sm" placeholder="e.g. 2.5.0">
+									</div>
+									<p class="hnw-field__hint">Show only when the remote plugin version matches this rule.</p>
+								</div>
+
+								<div class="hnw-field">
+									<label class="hnw-field__label">User Roles</label>
+									<div class="hnw-role-grid">
+										<?php foreach ( [ 'administrator', 'editor', 'author', 'contributor', 'subscriber' ] as $role ): ?>
+											<label class="hnw-role-check">
+												<input type="checkbox" name="targeting_roles[]" value="<?php echo esc_attr( $role ); ?>">
+												<?php echo esc_html( ucfirst( $role ) ); ?>
+											</label>
+										<?php endforeach; ?>
+									</div>
+									<p class="hnw-field__hint">Leave all unchecked to show to every role.</p>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="hnw-modal__footer">
+						<button type="button" class="hnw-btn hnw-btn--secondary hnw-modal-cancel">Cancel</button>
+						<button type="submit" class="hnw-btn hnw-btn--primary">Add Campaign</button>
 					</div>
 				</form>
 			</div>
 		</div>
+		<?php
+	}
 
-		<!-- Edit Content Modal -->
-		<div id="edit-content-modal" class="html-notice-widget-modal" style="display: none;">
-			<div class="modal-backdrop"></div>
-			<div class="modal-content">
-				<div class="modal-header">
-					<h2>Edit Content: "<span id="edit-content-title-display"></span>"</h2>
-					<button type="button" class="modal-close">&times;</button>
+	/**
+	 * Render Edit Campaign modal
+	 */
+	private function render_modal_edit_campaign() {
+		?>
+		<div id="hnw-modal-edit-campaign" class="hnw-modal" style="display:none;">
+			<div class="hnw-modal__backdrop"></div>
+			<div class="hnw-modal__panel">
+				<div class="hnw-modal__header">
+					<h2 class="hnw-modal__title">Edit: "<span id="hnw-edit-content-title-display"></span>"</h2>
+					<button type="button" class="hnw-modal__close">&times;</button>
 				</div>
-				<form method="post" class="html-notice-widget-form" id="edit-content-form">
+				<form method="post">
 					<?php wp_nonce_field( 'html_notice_widget_action' ); ?>
 					<input type="hidden" name="action" value="edit_content">
-					<input type="hidden" name="site_id" id="edit-content-site-id">
-					<input type="hidden" name="content_id" id="edit-content-id">
+					<input type="hidden" name="site_id" id="hnw-edit-content-site-id">
+					<input type="hidden" name="content_id" id="hnw-edit-content-id">
+					<div class="hnw-modal__body">
+						<div class="hnw-field">
+							<label class="hnw-field__label" for="hnw-edit-content-title">
+								Campaign Title <span class="hnw-field__required">*</span>
+							</label>
+							<input type="text" id="hnw-edit-content-title" name="content_title" class="hnw-input" required>
+						</div>
+						<div class="hnw-field">
+							<label class="hnw-field__label" for="hnw-edit-content-desc">Description</label>
+							<input type="text" id="hnw-edit-content-desc" name="content_description" class="hnw-input"
+								placeholder="Brief notes about this campaign">
+						</div>
+						<div class="hnw-field">
+							<label class="hnw-field__label" for="hnw-edit-content-html">
+								HTML Content <span class="hnw-field__required">*</span>
+							</label>
+							<textarea id="hnw-edit-content-html" name="content_html" class="hnw-textarea" required></textarea>
+						</div>
+						<div class="hnw-field">
+							<label class="hnw-field__label">Schedule</label>
+							<div class="hnw-schedule-row">
+								<div class="hnw-schedule-field">
+									<label class="hnw-field__label" for="hnw-edit-schedule-start" style="font-weight:400;font-size:12px;">
+										Start Date
+									</label>
+									<input type="datetime-local" id="hnw-edit-schedule-start" name="schedule_start" class="hnw-datetime">
+								</div>
+								<div class="hnw-schedule-field">
+									<label class="hnw-field__label" for="hnw-edit-schedule-end" style="font-weight:400;font-size:12px;">
+										End Date
+									</label>
+									<input type="datetime-local" id="hnw-edit-schedule-end" name="schedule_end" class="hnw-datetime">
+								</div>
+							</div>
+							<p class="hnw-field__hint">Optional. Leave both empty to show indefinitely.</p>
+						</div>
+						<div class="hnw-field">
+							<label class="hnw-toggle">
+								<input type="checkbox" id="hnw-edit-content-enabled" name="content_enabled" value="1">
+								<span class="hnw-toggle__slider"></span>
+								Enable this campaign
+							</label>
+						</div>
 
-					<table class="form-table">
-						<tr>
-							<th scope="row"><label for="edit_content_title">Content Title <span class="required">*</span></label></th>
-							<td>
-								<input type="text" id="edit_content_title" name="content_title" class="regular-text" required>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label for="edit_content_description">Content Description</label></th>
-							<td>
-								<input type="text" id="edit_content_description" name="content_description" class="regular-text" placeholder="Brief description or notes about this content">
-								<p class="description">Optional description to help identify this content.</p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label for="edit_content_html">HTML Content <span class="required">*</span></label></th>
-							<td>
-								<textarea id="edit_content_html" name="content_html" rows="10" cols="50" class="large-text code" required></textarea>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label>Schedule</label></th>
-							<td>
-								<div class="schedule-fields">
-									<div class="schedule-field">
-										<label for="edit_schedule_start">Start Date:</label>
-										<input type="datetime-local" id="edit_schedule_start" name="schedule_start" class="regular-text">
-									</div>
-									<div class="schedule-field">
-										<label for="edit_schedule_end">End Date:</label>
-										<input type="datetime-local" id="edit_schedule_end" name="schedule_end" class="regular-text">
+						<!-- Targeting Section -->
+						<div class="hnw-targeting-section">
+							<button type="button" class="hnw-targeting-toggle">
+								<?php echo self::svg_icon( 'package', 14 ); ?> Targeting Rules
+								<span class="hnw-targeting-toggle__arrow"><?php echo self::svg_icon( 'download', 12 ); ?></span>
+							</button>
+							<div class="hnw-targeting-body" style="display:none;">
+								<p class="hnw-field__hint" style="margin-bottom:12px;">Control who sees this campaign on the remote site.</p>
+
+								<div class="hnw-field">
+									<label class="hnw-field__label" for="hnw-edit-targeting-pro">Audience</label>
+									<select id="hnw-edit-targeting-pro" name="targeting_pro_users" class="hnw-input">
+										<option value="all">All Users</option>
+										<option value="free_only">Free Users Only</option>
+										<option value="pro_only">Pro Users Only</option>
+									</select>
+								</div>
+
+								<div class="hnw-field">
+									<label class="hnw-field__label">Plugin Version</label>
+									<div class="hnw-version-row">
+										<select id="hnw-edit-targeting-version-op" name="targeting_version_op" class="hnw-input hnw-input--sm">
+											<option value="">No filter</option>
+											<option value="lt">&lt; Less than</option>
+											<option value="lte">&le; Less or equal</option>
+											<option value="eq">= Equal</option>
+											<option value="gte">&ge; Greater or equal</option>
+											<option value="gt">&gt; Greater than</option>
+										</select>
+										<input type="text" id="hnw-edit-targeting-version" name="targeting_version" class="hnw-input hnw-input--sm" placeholder="e.g. 2.5.0">
 									</div>
 								</div>
-								<p class="description">Optional. Set a date range for this campaign. Leave empty to show indefinitely. Campaign will be auto-disabled after the end date.</p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row">Status</th>
-							<td>
-								<label>
-									<input type="checkbox" id="edit_content_enabled" name="content_enabled" value="1">
-									Enable this offer
-								</label>
-							</td>
-						</tr>
-					</table>
 
-					<div class="modal-footer">
-						<input type="submit" class="button button-primary" value="Update Content">
-						<button type="button" class="button modal-cancel">Cancel</button>
+								<div class="hnw-field">
+									<label class="hnw-field__label">User Roles</label>
+									<div class="hnw-role-grid" id="hnw-edit-targeting-roles">
+										<?php foreach ( [ 'administrator', 'editor', 'author', 'contributor', 'subscriber' ] as $role ): ?>
+											<label class="hnw-role-check">
+												<input type="checkbox" name="targeting_roles[]" value="<?php echo esc_attr( $role ); ?>">
+												<?php echo esc_html( ucfirst( $role ) ); ?>
+											</label>
+										<?php endforeach; ?>
+									</div>
+									<p class="hnw-field__hint">Leave all unchecked to show to every role.</p>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="hnw-modal__footer">
+						<button type="button" class="hnw-btn hnw-btn--secondary hnw-modal-cancel">Cancel</button>
+						<button type="submit" class="hnw-btn hnw-btn--primary">Update Campaign</button>
 					</div>
 				</form>
 			</div>
 		</div>
+		<?php
+	}
 
-		<!-- Documentation Modal -->
-		<div id="docs-modal" class="html-notice-widget-modal" style="display: none;">
-			<div class="modal-backdrop"></div>
-			<div class="modal-content modal-content-large">
-				<div class="modal-header">
-					<h2>📖 How To Integrate: "<span id="docs-product-name"></span>"</h2>
-					<button type="button" class="modal-close">&times;</button>
+	/**
+	 * Render Documentation modal
+	 */
+	private function render_modal_user_doc() {
+		?>
+		<div id="hnw-modal-user-doc" class="hnw-modal" style="display:none;">
+			<div class="hnw-modal__backdrop"></div>
+			<div class="hnw-modal__panel hnw-modal__panel--lg">
+				<div class="hnw-modal__header">
+					<h2 class="hnw-modal__title"><?php echo self::svg_icon( 'book', 18 ); ?> Integrate: "<span id="hnw-user-doc-product-name"></span>"</h2>
+					<button type="button" class="hnw-modal__close">&times;</button>
 				</div>
-				<div class="docs-modal-body">
-					<div class="docs-step">
+				<div class="hnw-modal__body">
+					<!-- Step 1 -->
+					<div class="hnw-user-doc-step">
 						<h3>Step 1: Download SDK</h3>
-						<p>Download the Remote Notice Client SDK file and add it to your plugin:</p>
-						<button type="button" class="button button-primary" id="download-sdk-btn">⬇️ Download class-remote-notice-client.php</button>
-						<p class="description" style="margin-top: 10px;">The file will be downloaded to your computer.</p>
+						<p>Download the Remote Notice Client SDK and add it to your plugin:</p>
+						<button type="button" class="hnw-btn hnw-btn--primary" id="hnw-download-sdk"><?php echo self::svg_icon( 'download', 14 ); ?> Download class-remote-notice-client.php</button>
 					</div>
 
-					<div class="docs-step">
-						<h3>Step 2: Add to Your Plugin</h3>
-						<p>Place the SDK file in your plugin directory:</p>
-						<pre class="docs-code-block">your-plugin/
+					<!-- Step 2 -->
+					<div class="hnw-user-doc-step">
+						<h3>Step 2: Place in Your Plugin</h3>
+						<div class="hnw-code-block">
+							<pre>your-plugin/
 └── includes/
     └── remote-notices/
         └── class-remote-notice-client.php</pre>
-					</div>
-
-					<div class="docs-step">
-						<h3>Step 3: Initialize in Your Plugin</h3>
-						<p>Add this code to your main plugin file:</p>
-						<div class="docs-code-wrapper">
-							<pre class="docs-code-block" id="docs-init-code"><?php echo esc_html("<?php
-// Remote Notice Integration
-require_once PLUGIN_PATH . 'includes/remote-notices/class-remote-notice-client.php';
-
-add_action( 'admin_init', function() {
-    if ( class_exists( 'Remote_Notice_Client' ) ) {
-        Remote_Notice_Client::init( 'PRODUCT_SLUG', [
-            'api_url' => 'API_URL',
-        ]);
-    }
-});"); ?></pre>
-							<button type="button" class="button copy-code-btn" data-target="docs-init-code">📋 Copy Code</button>
 						</div>
 					</div>
 
-					<div class="docs-step">
-						<h3>Pro/Free Version Toggle</h3>
-						<p>To disable notices when Pro version is active:</p>
-						<div class="docs-code-wrapper">
-							<pre class="docs-code-block" id="docs-pro-code"><?php echo esc_html("<?php
-// Disable notices when Pro is active
-add_action( 'admin_init', function() {
-    if ( defined( 'YOUR_PLUGIN_PRO_ACTIVE' ) && YOUR_PLUGIN_PRO_ACTIVE ) {
-        Remote_Notice_Client::disable( 'PRODUCT_SLUG' );
-        return;
-    }
-    
-    Remote_Notice_Client::init( 'PRODUCT_SLUG', [
-        'api_url' => 'API_URL',
-    ]);
-});"); ?></pre>
-							<button type="button" class="button copy-code-btn" data-target="docs-pro-code">📋 Copy Code</button>
+					<!-- Step 3 -->
+					<div class="hnw-user-doc-step">
+						<h3>Step 3: Initialize</h3>
+						<p>Add this code to your main plugin file. The <code>plugin_version</code> and <code>is_pro</code> params enable server-side targeting rules:</p>
+						<div class="hnw-code-block">
+							<pre id="hnw-user-doc-init-code"></pre>
+							<button type="button" class="hnw-btn hnw-btn--secondary hnw-btn--sm hnw-code-copy" data-target="hnw-user-doc-init-code"><?php echo self::svg_icon( 'clipboard', 12 ); ?> Copy</button>
 						</div>
 					</div>
 
-					<div class="docs-step">
+					<!-- Step 4 -->
+					<div class="hnw-user-doc-step">
+						<h3>Pro/Free Toggle</h3>
+						<p>Use <code>disable()</code> to fully stop the client when your Pro version is active, or pass <code>is_pro</code> to let server-side targeting handle it:</p>
+						<div class="hnw-code-block">
+							<pre id="hnw-user-doc-pro-code"></pre>
+							<button type="button" class="hnw-btn hnw-btn--secondary hnw-btn--sm hnw-code-copy" data-target="hnw-user-doc-pro-code"><?php echo self::svg_icon( 'clipboard', 12 ); ?> Copy</button>
+						</div>
+					</div>
+
+					<!-- Config Table -->
+					<div class="hnw-user-doc-step">
 						<h3>Configuration Options</h3>
-						<table class="docs-options-table">
-							<thead>
-								<tr>
-									<th>Option</th>
-									<th>Default</th>
-									<th>Description</th>
-								</tr>
-							</thead>
+						<table class="hnw-options-table">
+							<thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
 							<tbody>
-								<tr>
-									<td><code>api_url</code></td>
-									<td><em>Required</em></td>
-									<td>The API endpoint URL</td>
-								</tr>
-								<tr>
-									<td><code>schedule</code></td>
-									<td><code>'daily'</code></td>
-									<td>Cron schedule: 'hourly', 'daily', 'twicedaily'</td>
-								</tr>
-								<tr>
-									<td><code>capability</code></td>
-									<td><code>'manage_options'</code></td>
-									<td>Required user capability to see notices</td>
-								</tr>
-								<tr>
-									<td><code>dismiss_duration</code></td>
-									<td><code>WEEK_IN_SECONDS</code></td>
-									<td>Temporary dismiss duration in seconds</td>
-								</tr>
+								<tr><td><code>api_url</code></td><td><em>Required</em></td><td>The REST API endpoint URL</td></tr>
+								<tr><td><code>plugin_version</code></td><td><code>''</code></td><td>Your plugin's current version (enables version-based targeting)</td></tr>
+								<tr><td><code>is_pro</code></td><td><code>false</code></td><td>Whether the Pro edition is active (enables audience targeting)</td></tr>
+								<tr><td><code>schedule</code></td><td><code>'daily'</code></td><td>Cron schedule: hourly, daily, twicedaily</td></tr>
+								<tr><td><code>capability</code></td><td><code>'manage_options'</code></td><td>Required capability to view notices</td></tr>
+								<tr><td><code>dismiss_duration</code></td><td><code>WEEK_IN_SECONDS</code></td><td>Temporary dismiss duration</td></tr>
 							</tbody>
 						</table>
 					</div>
 
-					<div class="docs-step">
+					<!-- Methods Table -->
+					<div class="hnw-user-doc-step">
 						<h3>Available Methods</h3>
-						<table class="docs-options-table">
-							<thead>
-								<tr>
-									<th>Method</th>
-									<th>Description</th>
-								</tr>
-							</thead>
+						<table class="hnw-options-table">
+							<thead><tr><th>Method</th><th>Description</th></tr></thead>
 							<tbody>
-								<tr>
-									<td><code>Remote_Notice_Client::init( $product, $config )</code></td>
-									<td>Initialize notice client for a product</td>
-								</tr>
-								<tr>
-									<td><code>Remote_Notice_Client::disable( $product )</code></td>
-									<td>Disable notices and unschedule cron</td>
-								</tr>
-								<tr>
-									<td><code>Remote_Notice_Client::enable( $product )</code></td>
-									<td>Re-enable a disabled product</td>
-								</tr>
-								<tr>
-									<td><code>Remote_Notice_Client::trigger_fetch( $product )</code></td>
-									<td>Manually trigger content fetch</td>
-								</tr>
-								<tr>
-									<td><code>Remote_Notice_Client::clear_all( $product )</code></td>
-									<td>Clear all stored notices</td>
-								</tr>
+								<tr><td><code>Remote_Notice_Client::init( $product, $config )</code></td><td>Initialize the notice client (returns instance or <code>false</code> if disabled)</td></tr>
+								<tr><td><code>Remote_Notice_Client::disable( $product )</code></td><td>Disable client, unschedule cron, and clear stored data</td></tr>
+								<tr><td><code>Remote_Notice_Client::enable( $product )</code></td><td>Re-enable a previously disabled product</td></tr>
+								<tr><td><code>Remote_Notice_Client::is_disabled( $product )</code></td><td>Check if the client is currently disabled</td></tr>
+								<tr><td><code>Remote_Notice_Client::trigger_fetch( $product )</code></td><td>Manually trigger a campaign fetch</td></tr>
+								<tr><td><code>Remote_Notice_Client::clear_all( $product )</code></td><td>Clear all stored notices for a product</td></tr>
 							</tbody>
 						</table>
 					</div>
 				</div>
-				<div class="modal-footer">
-					<button type="button" class="button modal-cancel">Close</button>
+				<div class="hnw-modal__footer">
+					<button type="button" class="hnw-btn hnw-btn--secondary hnw-modal-cancel">Close</button>
 				</div>
 			</div>
 		</div>
 		<?php
 	}
 
+	/* =========================================================================
+	   Utilities
+	   ========================================================================= */
+
 	/**
-	 * Add admin notice
+	 * Return an inline SVG icon by name
+	 *
+	 * @param string $name Icon name.
+	 * @param int    $size Size in px (default 16).
+	 * @return string SVG markup.
+	 */
+	public static function svg_icon( $name, $size = 16 ) {
+		$icons = [
+			'megaphone'  => '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+			'package'    => '<path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+			'campaign'   => '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+			'check'      => '<polyline points="20 6 9 17 4 12"/>',
+			'pause'      => '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>',
+			'inbox'      => '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+			'plus'       => '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+			'clipboard'  => '<rect x="9" y="2" width="6" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+			'book'       => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+			'edit'       => '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+			'trash'      => '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+			'calendar'   => '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+			'download'   => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+			'circle-dot'  => '<circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="10" fill="none"/>',
+			'circle-o'   => '<circle cx="12" cy="12" r="10" fill="none"/>',
+			'x-circle'   => '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+			'alert'      => '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+			'info'       => '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+			'bar-chart'  => '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+			'eye'        => '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+			'mouse-pointer' => '<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/>',
+		];
+
+		$path = $icons[ $name ] ?? '';
+		if ( empty( $path ) ) {
+			return '';
+		}
+
+		return '<svg xmlns="http://www.w3.org/2000/svg" width="' . absint( $size ) . '" height="' . absint( $size ) . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hnw-icon" aria-hidden="true">' . $path . '</svg>';
+	}
+
+	/**
+	 * Add admin notice to transient
+	 *
+	 * @param string $message Notice message.
+	 * @param string $type    Notice type (success, error, warning, info).
 	 */
 	private function add_admin_notice( $message, $type = 'info' ) {
 		add_settings_error( 'html_notice_widget_messages', 'html_notice_widget_message', $message, $type );
+	}
+
+	/**
+	 * Render admin notices with branded notice types
+	 */
+	private function render_admin_notices() {
+		$notices = get_settings_errors( 'html_notice_widget_messages' );
+
+		if ( empty( $notices ) ) {
+			return;
+		}
+
+		$icon_map = [
+			'success' => 'check',
+			'error'   => 'x-circle',
+			'warning' => 'alert',
+			'info'    => 'info',
+			'updated' => 'check',
+		];
+
+		foreach ( $notices as $notice ) {
+			$t    = $notice['type'] ?? 'info';
+			$cls  = ( 'updated' === $t ) ? 'success' : $t;
+			$icon = $icon_map[ $t ] ?? 'info';
+			?>
+			<div class="hnw-notice hnw-notice--<?php echo esc_attr( $cls ); ?>">
+				<span class="hnw-notice__icon"><?php echo self::svg_icon( $icon, 18 ); ?></span>
+				<span class="hnw-notice__text"><?php echo esc_html( $notice['message'] ); ?></span>
+			</div>
+			<?php
+		}
 	}
 
 	/**
@@ -723,13 +1014,13 @@ add_action( 'admin_init', function() {
 	 */
 	public function ajax_download_sdk() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( 'Unauthorized' );
+			wp_die( esc_html__( 'Unauthorized', 'html-notice-widget' ) );
 		}
 
 		$sdk_file = HTML_NOTICE_WIDGET_PATH . 'sdk/class-remote-notice-client.php';
 
 		if ( ! file_exists( $sdk_file ) ) {
-			wp_die( 'SDK file not found' );
+			wp_die( esc_html__( 'SDK file not found', 'html-notice-widget' ) );
 		}
 
 		$content = file_get_contents( $sdk_file );
@@ -745,14 +1036,9 @@ add_action( 'admin_init', function() {
 	}
 
 	/**
-	 * Render admin notices
-	 */
-	private function render_admin_notices() {
-		settings_errors( 'html_notice_widget_messages' );
-	}
-
-	/**
-	 * Enqueue admin assets
+	 * Enqueue admin assets (CSS + JS)
+	 *
+	 * @param string $hook Current admin page hook.
 	 */
 	public function enqueue_admin_assets( $hook ) {
 		if ( 'toplevel_page_html-notice-widget' !== $hook ) {
@@ -760,7 +1046,7 @@ add_action( 'admin_init', function() {
 		}
 
 		wp_enqueue_style(
-			'html-notice-widget-php-admin',
+			'html-notice-widget-admin',
 			HTML_NOTICE_WIDGET_URL . 'assets/css/php-admin.css',
 			[],
 			HTML_NOTICE_WIDGET_VERSION
@@ -768,208 +1054,12 @@ add_action( 'admin_init', function() {
 
 		wp_enqueue_script( 'jquery' );
 
-		// Add inline JavaScript for modal functionality
-		$inline_js = "
-		jQuery(document).ready(function($) {
-			// Modal elements
-			const modals = {
-				addSite: $('#add-site-modal')[0],
-				editSite: $('#edit-site-modal')[0],
-				addContent: $('#add-content-modal')[0],
-				editContent: $('#edit-content-modal')[0],
-				docs: $('#docs-modal')[0]
-			};
-
-			// Open modal functions
-			function openModal(modal) {
-				if (modal) {
-					$(modal).show();
-					setTimeout(() => {
-						$(modal).addClass('modal-show');
-					}, 10);
-					$('body').css('overflow', 'hidden');
-				}
-			}
-
-			function closeModal(modal) {
-				if (modal) {
-					$(modal).removeClass('modal-show');
-					setTimeout(() => {
-						$(modal).hide();
-						$('body').css('overflow', '');
-						// Reset forms
-						$(modal).find('form')[0]?.reset();
-					}, 300);
-				}
-			}
-
-			// Event delegation for dynamic buttons
-			// Add Site Modal
-			$(document).on('click', '#add-site-modal-trigger, #add-site-modal-trigger-empty', function(e) {
-				e.preventDefault();
-				openModal(modals.addSite);
-			});
-
-			// Edit Site Modal
-			$(document).on('click', '.edit-site-trigger', function(e) {
-				e.preventDefault();
-				const siteId = $(this).data('site-id');
-				const siteName = $(this).data('site-name');
-				const siteEnabled = $(this).data('site-enabled');
-
-				$('#edit-site-id').val(siteId);
-				$('#edit-product').val(siteName);
-				$('#edit-enabled').prop('checked', siteEnabled == 1);
-
-				openModal(modals.editSite);
-			});
-
-			// Add Content Modal
-			$(document).on('click', '.add-content-trigger', function(e) {
-				e.preventDefault();
-				const siteId = $(this).data('site-id');
-				const siteName = $(this).data('site-name');
-
-				$('#add-content-site-id').val(siteId);
-				$('#add-content-site-name').text(siteName);
-
-				openModal(modals.addContent);
-			});
-
-			// Edit Content Modal
-			$(document).on('click', '.edit-content-trigger', function(e) {
-				e.preventDefault();
-				const siteId = $(this).data('site-id');
-				const contentId = $(this).data('content-id');
-				const title = $(this).data('content-title');
-				const description = $(this).data('content-description');
-				const html = $(this).data('content-html');
-				const enabled = $(this).data('content-enabled');
-				const scheduleStart = $(this).data('schedule-start');
-				const scheduleEnd = $(this).data('schedule-end');
-
-				$('#edit-content-site-id').val(siteId);
-				$('#edit-content-id').val(contentId);
-				$('#edit_content_title').val(title);
-				$('#edit_content_description').val(description);
-				$('#edit_content_html').val(html);
-				$('#edit_content_enabled').prop('checked', enabled == 1);
-				$('#edit-content-title-display').text(title);
-				
-				// Handle schedule fields - convert from stored format to datetime-local format
-				if (scheduleStart) {
-					$('#edit_schedule_start').val(scheduleStart.replace(' ', 'T').substring(0, 16));
-				} else {
-					$('#edit_schedule_start').val('');
-				}
-				if (scheduleEnd) {
-					$('#edit_schedule_end').val(scheduleEnd.replace(' ', 'T').substring(0, 16));
-				} else {
-					$('#edit_schedule_end').val('');
-				}
-
-				openModal(modals.editContent);
-			});
-
-			// Documentation Modal
-			$(document).on('click', '.docs-trigger', function(e) {
-				e.preventDefault();
-				const product = $(this).data('product');
-				const apiUrl = $(this).data('api-url');
-				
-				$('#docs-product-name').text(product);
-				
-				// Update the basic code example with actual values
-				const codeTemplate = `<?php
-// Remote Notice Integration
-require_once PLUGIN_PATH . 'includes/remote-notices/class-remote-notice-client.php';
-
-add_action( 'admin_init', function() {
-    if ( class_exists( 'Remote_Notice_Client' ) ) {
-        Remote_Notice_Client::init( '` + product + `', [
-            'api_url' => '` + apiUrl + `',
-        ]);
-    }
-});`;
-				$('#docs-init-code').text(codeTemplate);
-				
-				// Update the Pro/Free code example with actual values
-				const proCodeTemplate = `<?php
-// Disable notices when Pro is active
-add_action( 'admin_init', function() {
-    if ( defined( 'YOUR_PLUGIN_PRO_ACTIVE' ) && YOUR_PLUGIN_PRO_ACTIVE ) {
-        Remote_Notice_Client::disable( '` + product + `' );
-        return;
-    }
-    
-    Remote_Notice_Client::init( '` + product + `', [
-        'api_url' => '` + apiUrl + `',
-    ]);
-});`;
-				$('#docs-pro-code').text(proCodeTemplate);
-				
-				openModal(modals.docs);
-			});
-			
-			// SDK Download button
-			$(document).on('click', '#download-sdk-btn', function(e) {
-				e.preventDefault();
-				window.location.href = ajaxurl + '?action=hnw_download_sdk';
-			});
-			
-			// Copy code button
-			$(document).on('click', '.copy-code-btn', function(e) {
-				e.preventDefault();
-				const targetId = $(this).data('target');
-				const codeText = $('#' + targetId).text();
-				
-				navigator.clipboard.writeText(codeText).then(() => {
-					const originalText = $(this).text();
-					$(this).text('✅ Copied!');
-					setTimeout(() => {
-						$(this).text(originalText);
-					}, 2000);
-				}).catch(err => {
-					console.error('Failed to copy:', err);
-				});
-			});
-
-			// Close modal events
-			$(document).on('click', '.modal-close, .modal-cancel', function(e) {
-				e.preventDefault();
-				const modal = $(this).closest('.html-notice-widget-modal')[0];
-				closeModal(modal);
-			});
-
-			// Backdrop click
-			$(document).on('click', '.modal-backdrop', function() {
-				const modal = $(this).closest('.html-notice-widget-modal')[0];
-				closeModal(modal);
-			});
-
-			// Escape key
-			$(document).keydown(function(e) {
-				if (e.key === 'Escape' || e.keyCode === 27) {
-					$('.html-notice-widget-modal.modal-show').each(function() {
-						closeModal(this);
-					});
-				}
-			});
-
-			// Add loading state to form submissions
-			$(document).on('submit', '.html-notice-widget-modal form', function() {
-				const submitBtn = $(this).find('input[type=\"submit\"], button[type=\"submit\"]');
-				const originalText = submitBtn.val() || submitBtn.text();
-				submitBtn.prop('disabled', true);
-				if (submitBtn.is('input')) {
-					submitBtn.val('Processing...');
-				} else {
-					submitBtn.text('Processing...');
-				}
-			});
-		});
-		";
-
-		wp_add_inline_script('jquery', $inline_js);
+		wp_enqueue_script(
+			'html-notice-widget-admin',
+			HTML_NOTICE_WIDGET_URL . 'assets/js/php-admin.js',
+			[ 'jquery' ],
+			HTML_NOTICE_WIDGET_VERSION,
+			true
+		);
 	}
 }

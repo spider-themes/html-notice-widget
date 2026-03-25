@@ -184,7 +184,10 @@ class PHP_Utils {
 					$site['contents'] = [];
 				}
 
-				$content_id = wp_generate_uuid4();
+				// Build targeting array from input or use defaults
+				$targeting = self::sanitize_targeting( $content_data['targeting'] ?? [] );
+
+				$content_id  = wp_generate_uuid4();
 				$new_content = [
 					'id'             => $content_id,
 					'title'          => sanitize_text_field( $content_data['title'] ),
@@ -193,6 +196,7 @@ class PHP_Utils {
 					'enabled'        => ! empty( $content_data['enabled'] ),
 					'schedule_start' => ! empty( $content_data['schedule_start'] ) ? sanitize_text_field( $content_data['schedule_start'] ) : '',
 					'schedule_end'   => ! empty( $content_data['schedule_end'] ) ? sanitize_text_field( $content_data['schedule_end'] ) : '',
+					'targeting'      => $targeting,
 				];
 
 				$site['contents'][] = $new_content;
@@ -220,7 +224,7 @@ class PHP_Utils {
 	 * @return bool
 	 */
 	public static function update_content( $site_id, $content_id, $content_data ) {
-		$sites = self::get_all_sites();
+		$sites   = self::get_all_sites();
 		$updated = false;
 
 		foreach ( $sites as &$site ) {
@@ -249,6 +253,11 @@ class PHP_Utils {
 
 						if ( array_key_exists( 'schedule_end', $content_data ) ) {
 							$content['schedule_end'] = ! empty( $content_data['schedule_end'] ) ? sanitize_text_field( $content_data['schedule_end'] ) : '';
+						}
+
+						// Update targeting rules
+						if ( array_key_exists( 'targeting', $content_data ) ) {
+							$content['targeting'] = self::sanitize_targeting( $content_data['targeting'] );
 						}
 
 						// Regenerate endpoint with updated content
@@ -531,4 +540,63 @@ class PHP_Utils {
 		return '';
 	}
 
+	/**
+	 * Get default targeting structure
+	 *
+	 * @return array Default targeting rules.
+	 */
+	public static function get_default_targeting() {
+		return [
+			'pro_users'      => 'all',
+			'plugin_version' => [
+				'operator' => '',
+				'version'  => '',
+			],
+			'user_roles'     => [],
+		];
+	}
+
+	/**
+	 * Sanitize targeting data, filling in defaults for missing keys
+	 *
+	 * @param array $raw Raw targeting input.
+	 * @return array Sanitized targeting.
+	 */
+	public static function sanitize_targeting( $raw ) {
+		$defaults = self::get_default_targeting();
+
+		if ( ! is_array( $raw ) || empty( $raw ) ) {
+			return $defaults;
+		}
+
+		// Pro users
+		$allowed_pro = [ 'all', 'free_only', 'pro_only' ];
+		$pro_users   = isset( $raw['pro_users'] ) ? sanitize_text_field( $raw['pro_users'] ) : 'all';
+		if ( ! in_array( $pro_users, $allowed_pro, true ) ) {
+			$pro_users = 'all';
+		}
+
+		// Plugin version
+		$allowed_ops = [ '', 'lt', 'lte', 'eq', 'gte', 'gt' ];
+		$operator    = isset( $raw['plugin_version']['operator'] ) ? sanitize_text_field( $raw['plugin_version']['operator'] ) : '';
+		$version     = isset( $raw['plugin_version']['version'] ) ? sanitize_text_field( $raw['plugin_version']['version'] ) : '';
+		if ( ! in_array( $operator, $allowed_ops, true ) ) {
+			$operator = '';
+		}
+
+		// User roles
+		$user_roles = [];
+		if ( ! empty( $raw['user_roles'] ) && is_array( $raw['user_roles'] ) ) {
+			$user_roles = array_map( 'sanitize_key', $raw['user_roles'] );
+		}
+
+		return [
+			'pro_users'      => $pro_users,
+			'plugin_version' => [
+				'operator' => $operator,
+				'version'  => $version,
+			],
+			'user_roles'     => $user_roles,
+		];
+	}
 }

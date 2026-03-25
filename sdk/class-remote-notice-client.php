@@ -63,6 +63,20 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 		private $dismiss_duration;
 
 		/**
+		 * Plugin version for targeting (provided by integrating plugin)
+		 *
+		 * @var string
+		 */
+		private $plugin_version;
+
+		/**
+		 * Whether pro version is active (provided by integrating plugin)
+		 *
+		 * @var bool
+		 */
+		private $is_pro;
+
+		/**
 		 * Allow HTML tags for content
 		 *
 		 * @var array
@@ -107,6 +121,8 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 			$this->schedule         = isset( $config['schedule'] ) ? $config['schedule'] : 'daily';
 			$this->capability       = isset( $config['capability'] ) ? $config['capability'] : 'manage_options';
 			$this->dismiss_duration = isset( $config['dismiss_duration'] ) ? absint( $config['dismiss_duration'] ) : WEEK_IN_SECONDS;
+			$this->plugin_version   = isset( $config['plugin_version'] ) ? sanitize_text_field( $config['plugin_version'] ) : '';
+			$this->is_pro           = isset( $config['is_pro'] ) ? (bool) $config['is_pro'] : false;
 			
 			// Define allowed HTML tags for notices
 			$this->allowed_html = array(
@@ -310,6 +326,11 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 					continue;
 				}
 
+				// Evaluate targeting rules before display
+				if ( ! $this->should_display_content( $content ) ) {
+					continue;
+				}
+
 				$content_id   = sanitize_key( $content['id'] );
 				$html_content = wp_kses( $content['content'], $this->allowed_html );
 				$nonce        = wp_create_nonce( 'rnc_dismiss_' . $this->product . '_' . $content_id );
@@ -358,11 +379,47 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 						var notice = document.getElementById('rnc-notice-<?php echo esc_js( $this->product . '-' . $content_id ); ?>');
 						if (!notice) return;
 
+						/* ---------- Analytics beacon helper ---------- */
+						var apiUrl = '<?php echo esc_js( $this->api_url ); ?>';
+						var trackUrl = apiUrl.replace(/\/content\/[^\/]+$/, '/analytics/track');
+						var endpoint = '<?php echo esc_js( $this->product ); ?>';
+						var cid = '<?php echo esc_js( $content_id ); ?>';
+
+						function sendBeacon(eventType) {
+							if (typeof navigator.sendBeacon === 'function') {
+								var payload = JSON.stringify({
+									endpoint: endpoint,
+									campaign_id: cid,
+									event_type: eventType,
+									site_url: window.location.origin
+								});
+								navigator.sendBeacon(trackUrl, new Blob([payload], {type: 'application/json'}));
+							}
+						}
+
+						/* ---------- Impression (fire once on render) ---------- */
+						sendBeacon('impression');
+
+						/* ---------- Click tracking ---------- */
+						var contentEl = notice.querySelector('.rnc-notice-content');
+						if (contentEl) {
+							contentEl.addEventListener('click', function(e) {
+								var link = e.target.closest('a');
+								if (link) {
+									sendBeacon('click');
+								}
+							});
+						}
+
+						/* ---------- Dismiss handler (existing + dismissal beacon) ---------- */
 						var closeBtn = notice.querySelector('.notice-dismiss');
 						if (closeBtn) {
 							closeBtn.addEventListener('click', function(e) {
 								e.preventDefault();
 								
+								/* Fire dismissal beacon */
+								sendBeacon('dismissal');
+
 								var action = notice.getAttribute('data-action');
 								var contentId = notice.getAttribute('data-content-id');
 								var nonce = notice.getAttribute('data-nonce');
@@ -432,6 +489,68 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 				error_log( '[Remote Notice Client - ' . strtoupper( $level ) . '] [' . $this->product . '] ' . $message );
 			}
+		}
+
+		/**
+		 * Evaluate targeting rules for a content item
+		 *
+		 * Returns true if the content should be displayed, false if it should be hidden.
+		 * Missing targeting data defaults to showing the content (backward compatible).
+		 *
+		 * @param array $content Content array with optional 'targeting' key.
+		 * @return bool
+		 */
+		private function should_display_content( $content ) {
+			// No targeting data — show to everyone (backward compat)
+			if ( empty( $content['targeting'] ) || ! is_array( $content['targeting'] ) ) {
+				return true;
+			}
+
+			$targeting = $content['targeting'];
+
+			// 1. Pro users check
+			if ( ! empty( $targeting['pro_users'] ) && 'all' !== $targeting['pro_users'] ) {
+				if ( 'free_only' === $targeting['pro_users'] && $this->is_pro ) {
+					return false;
+				}
+				if ( 'pro_only' === $targeting['pro_users'] && ! $this->is_pro ) {
+					return false;
+				}
+			}
+
+			// 2. Plugin version check
+			if ( ! empty( $targeting['plugin_version'] ) && is_array( $targeting['plugin_version'] ) ) {
+				$operator = isset( $targeting['plugin_version']['operator'] ) ? $targeting['plugin_version']['operator'] : '';
+				$version  = isset( $targeting['plugin_version']['version'] ) ? $targeting['plugin_version']['version'] : '';
+
+				if ( ! empty( $operator ) && ! empty( $version ) && ! empty( $this->plugin_version ) ) {
+					$op_map = array(
+						'lt'  => '<',
+						'lte' => '<=',
+						'eq'  => '==',
+						'gte' => '>=',
+						'gt'  => '>',
+					);
+
+					$php_op = isset( $op_map[ $operator ] ) ? $op_map[ $operator ] : '';
+					if ( ! empty( $php_op ) && ! version_compare( $this->plugin_version, $version, $php_op ) ) {
+						return false;
+					}
+				}
+			}
+
+			// 3. User roles check
+			if ( ! empty( $targeting['user_roles'] ) && is_array( $targeting['user_roles'] ) ) {
+				$current_user = wp_get_current_user();
+				if ( $current_user && ! empty( $current_user->roles ) ) {
+					$intersect = array_intersect( $current_user->roles, $targeting['user_roles'] );
+					if ( empty( $intersect ) ) {
+						return false;
+					}
+				}
+			}
+
+			return true;
 		}
 
 		/**

@@ -23,6 +23,13 @@ class Plugin {
 	private $php_admin = null;
 
 	/**
+	 * Analytics Admin instance
+	 *
+	 * @var Analytics_Admin
+	 */
+	private $analytics_admin = null;
+
+	/**
 	 * Get or create instance
 	 */
 	public static function instance() {
@@ -46,6 +53,7 @@ class Plugin {
 	private function init_admin_interface() {
 		// Initialize PHP Admin interface
 		$this->php_admin = new PHP_Admin();
+		$this->analytics_admin = new Analytics_Admin();
 	}
 
 	/**
@@ -55,8 +63,11 @@ class Plugin {
 		add_action( 'admin_menu', [ $this, 'add_admin_menu' ] );
 		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
 		
-		// Schedule cron for processing expired content
+		// Schedule cron for processing expired content.
 		add_action( 'html_notice_widget_process_expired', [ $this, 'process_expired_content' ] );
+
+		// Analytics rollup cron.
+		add_action( 'hnw_analytics_rollup', [ $this, 'run_analytics_rollup' ] );
 		
 		// Note: PHP Admin handles its own asset enqueuing
 	}
@@ -74,6 +85,15 @@ class Plugin {
 			'dashicons-megaphone',
 			99
 		);
+
+		add_submenu_page(
+			'html-notice-widget',
+			'Analytics — HTML Notice Widget',
+			'Analytics',
+			'manage_options',
+			'html-notice-widget-analytics',
+			[ $this, 'render_analytics_page' ]
+		);
 	}
 
 	/**
@@ -84,6 +104,17 @@ class Plugin {
 			$this->php_admin->render_admin_page();
 		} else {
 			echo '<div class="wrap"><h1>HTML Notice Widget</h1><p>Admin interface not initialized.</p></div>';
+		}
+	}
+
+	/**
+	 * Render analytics page
+	 */
+	public function render_analytics_page() {
+		if ( $this->analytics_admin ) {
+			$this->analytics_admin->render_analytics_page();
+		} else {
+			echo '<div class="wrap"><h1>Analytics</h1><p>Analytics interface not initialized.</p></div>';
 		}
 	}
 
@@ -107,10 +138,18 @@ class Plugin {
 			// Migrate existing sites to new structure
 			$this->migrate_sites_structure();
 		}
+
+		// Create analytics tables.
+		Analytics::create_tables();
 		
 		// Schedule cron job for processing expired content (runs hourly)
 		if ( ! wp_next_scheduled( 'html_notice_widget_process_expired' ) ) {
 			wp_schedule_event( time(), 'hourly', 'html_notice_widget_process_expired' );
+		}
+
+		// Schedule analytics rollup cron (runs hourly).
+		if ( ! wp_next_scheduled( 'hnw_analytics_rollup' ) ) {
+			wp_schedule_event( time(), 'hourly', 'hnw_analytics_rollup' );
 		}
 		
 		flush_rewrite_rules();
@@ -156,13 +195,29 @@ class Plugin {
 	 * Deactivation hook
 	 */
 	public function deactivate() {
-		// Unschedule cron job
+		// Unschedule cron jobs.
 		$timestamp = wp_next_scheduled( 'html_notice_widget_process_expired' );
 		if ( $timestamp ) {
 			wp_unschedule_event( $timestamp, 'html_notice_widget_process_expired' );
 		}
+
+		$rollup_ts = wp_next_scheduled( 'hnw_analytics_rollup' );
+		if ( $rollup_ts ) {
+			wp_unschedule_event( $rollup_ts, 'hnw_analytics_rollup' );
+		}
 		
 		flush_rewrite_rules();
+	}
+
+	/**
+	 * Run analytics rollup cron job
+	 */
+	public function run_analytics_rollup() {
+		$result = Analytics::rollup_and_prune();
+
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && $result['pruned_count'] > 0 ) {
+			error_log( '[HTML Notice Widget] Analytics rollup: ' . $result['rollup_count'] . ' rows rolled up, ' . $result['pruned_count'] . ' raw rows pruned' );
+		}
 	}
 
 	/**

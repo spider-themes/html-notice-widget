@@ -30,6 +30,8 @@ require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-php-admin.php';
 require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-php-utils.php';
 require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-api.php';
 require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-options.php';
+require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-analytics.php';
+require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-analytics-admin.php';
 
 /**
  * Initialize the plugin
