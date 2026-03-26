@@ -290,6 +290,69 @@ class Analytics {
 	}
 
 	/**
+	 * Get daily stats for a campaign (last N days)
+	 *
+	 * Queries the summary table grouped by event_date, ordered newest first.
+	 * Used by the detail panel to show a daily trend breakdown.
+	 *
+	 * @param string $endpoint    Product endpoint slug.
+	 * @param string $campaign_id Campaign UUID.
+	 * @param int    $days        Number of days to return (default 14).
+	 * @return array Array of daily stat rows.
+	 */
+	public static function get_campaign_daily_stats( $endpoint, $campaign_id, $days = 14 ) {
+		global $wpdb;
+
+		$summary_table = $wpdb->prefix . self::SUMMARY_TABLE;
+		$days          = absint( $days );
+
+		if ( $days < 1 ) {
+			$days = 14;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT
+					event_date,
+					impressions,
+					clicks,
+					dismissals,
+					unique_sites
+				FROM {$summary_table}
+				WHERE product_endpoint = %s AND campaign_id = %s
+				ORDER BY event_date DESC
+				LIMIT %d",
+				sanitize_key( $endpoint ),
+				sanitize_text_field( $campaign_id ),
+				$days
+			),
+			ARRAY_A
+		);
+
+		if ( ! $rows ) {
+			return [];
+		}
+
+		$result = [];
+		foreach ( $rows as $row ) {
+			$imp = (int) $row['impressions'];
+			$clk = (int) $row['clicks'];
+
+			$result[] = [
+				'date'         => $row['event_date'],
+				'impressions'  => $imp,
+				'clicks'       => $clk,
+				'dismissals'   => (int) $row['dismissals'],
+				'ctr'          => $imp > 0 ? round( ( $clk / $imp ) * 100, 1 ) : 0,
+				'unique_sites' => (int) $row['unique_sites'],
+			];
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Get per-campaign summary for a specific product
 	 *
 	 * @param string $endpoint Product endpoint slug.

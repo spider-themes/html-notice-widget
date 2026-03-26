@@ -26,12 +26,12 @@ define( 'HTML_NOTICE_WIDGET_BASENAME', plugin_basename( __FILE__ ) );
 
 // Include required files
 require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-plugin.php';
-require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-php-admin.php';
+require_once HTML_NOTICE_WIDGET_PATH . 'admin/class-php-admin.php';
 require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-php-utils.php';
 require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-api.php';
 require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-options.php';
 require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-analytics.php';
-require_once HTML_NOTICE_WIDGET_PATH . 'includes/class-analytics-admin.php';
+require_once HTML_NOTICE_WIDGET_PATH . 'admin/class-analytics-admin.php';
 
 /**
  * Initialize the plugin

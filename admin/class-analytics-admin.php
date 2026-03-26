@@ -20,6 +20,7 @@ class Analytics_Admin {
 	 */
 	public function __construct() {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+		add_action( 'wp_ajax_hnw_trigger_rollup', [ $this, 'ajax_trigger_rollup' ] );
 	}
 
 	/**
@@ -62,9 +63,32 @@ class Analytics_Admin {
 		}
 
 		wp_localize_script( 'html-notice-widget-analytics', 'hnwAnalytics', [
-			'restUrl'  => esc_url_raw( rest_url( 'html-notice-widget/v1' ) ),
-			'nonce'    => wp_create_nonce( 'wp_rest' ),
-			'products' => $products,
+			'restUrl'      => esc_url_raw( rest_url( 'html-notice-widget/v1' ) ),
+			'nonce'        => wp_create_nonce( 'wp_rest' ),
+			'products'     => $products,
+			'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
+			'rollupNonce'  => wp_create_nonce( 'hnw_rollup_nonce' ),
+		] );
+	}
+
+	/**
+	 * AJAX handler — manually trigger analytics rollup
+	 */
+	public function ajax_trigger_rollup() {
+		if ( ! check_ajax_referer( 'hnw_rollup_nonce', 'nonce', false ) ) {
+			wp_send_json_error( [ 'message' => __( 'Invalid token.', 'html-notice-widget' ) ] );
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Unauthorized.', 'html-notice-widget' ) ] );
+		}
+
+		$result = Analytics::rollup_and_prune();
+
+		wp_send_json_success( [
+			'message'      => __( 'Rollup complete.', 'html-notice-widget' ),
+			'rollup_count' => $result['rollup_count'] ?? 0,
+			'pruned_count' => $result['pruned_count'] ?? 0,
 		] );
 	}
 
@@ -90,6 +114,10 @@ class Analytics_Admin {
 						<h1 class="hnw-hero__title">Campaign Analytics</h1>
 						<p class="hnw-hero__subtitle">Track impressions, clicks & dismissals across your products.</p>
 					</div>
+				</div>
+				<div class="hnw-hero__actions">
+					<button type="button" class="hnw-btn hnw-btn--hero" id="hnw-a-refresh-btn"
+						data-hnw-tooltip="Aggregate raw analytics into daily summaries" data-tooltip-pos="bottom"><?php echo PHP_Admin::svg_icon( 'refresh', 14 ); ?> Refresh Data</button>
 				</div>
 			</div>
 
@@ -169,46 +197,20 @@ class Analytics_Admin {
 
 						<!-- Campaign Detail Panel (hidden by default) -->
 						<div id="hnw-a-detail-panel" class="hnw-detail-panel" style="display:none;">
-							<div class="hnw-detail-panel__header">
-								<h3 class="hnw-detail-panel__title" id="hnw-a-detail-title"></h3>
-								<button type="button" class="hnw-btn hnw-btn--ghost hnw-btn--sm" id="hnw-a-detail-close">&times; Close</button>
-							</div>
-
-							<!-- 4 Metric Cards -->
-							<div class="hnw-metric-grid">
-								<div class="hnw-metric-card">
-									<div class="hnw-metric-card__icon" style="background:var(--hnw-info-bg);color:var(--hnw-info);"><?php echo PHP_Admin::svg_icon( 'eye', 18 ); ?></div>
-									<div class="hnw-metric-card__value" id="hnw-a-d-impressions">0</div>
-									<div class="hnw-metric-card__label">Impressions</div>
-								</div>
-								<div class="hnw-metric-card">
-									<div class="hnw-metric-card__icon" style="background:var(--hnw-success-bg);color:var(--hnw-success);"><?php echo PHP_Admin::svg_icon( 'mouse-pointer', 18 ); ?></div>
-									<div class="hnw-metric-card__value" id="hnw-a-d-clicks">0</div>
-									<div class="hnw-metric-card__label">Clicks</div>
-								</div>
-								<div class="hnw-metric-card">
-									<div class="hnw-metric-card__icon" style="background:var(--hnw-error-bg);color:var(--hnw-error);"><?php echo PHP_Admin::svg_icon( 'x-circle', 18 ); ?></div>
-									<div class="hnw-metric-card__value" id="hnw-a-d-dismissals">0</div>
-									<div class="hnw-metric-card__label">Dismissals</div>
-								</div>
-								<div class="hnw-metric-card">
-									<div class="hnw-metric-card__icon" style="background:var(--hnw-accent-light);color:var(--hnw-accent);"><?php echo PHP_Admin::svg_icon( 'package', 18 ); ?></div>
-									<div class="hnw-metric-card__value" id="hnw-a-d-sites">0</div>
-									<div class="hnw-metric-card__label">Unique Sites</div>
-								</div>
-							</div>
-
-							<!-- CTR Bar -->
-							<div class="hnw-ctr-section">
-								<div class="hnw-ctr-section__header">
-									<span class="hnw-ctr-section__label">Click-Through Rate</span>
-									<span class="hnw-ctr-section__value" id="hnw-a-d-ctr">0%</span>
-								</div>
-								<div class="hnw-ctr-bar">
-									<div class="hnw-ctr-bar__fill" id="hnw-a-d-ctr-bar" style="width:0%"></div>
-								</div>
-							</div>
+						<div class="hnw-detail-panel__header">
+						<h3 class="hnw-detail-panel__title" id="hnw-a-detail-title"></h3>
+						<button type="button" class="hnw-btn hnw-btn--ghost hnw-btn--sm" id="hnw-a-detail-close">&times; Close</button>
 						</div>
+						
+						<!-- Daily Breakdown (populated via JS) -->
+						<div class="hnw-daily-section">
+						<h4 class="hnw-daily-section__title">Daily Breakdown <span class="hnw-daily-section__hint">(Last 14 days)</span></h4>
+						<div id="hnw-a-daily-table">
+						<p class="hnw-daily-empty">Click a campaign to see daily data.</p>
+						</div>
+						</div>
+						</div>
+
 					</div>
 				</div>
 			<?php endif; ?>

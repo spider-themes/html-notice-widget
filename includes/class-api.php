@@ -286,12 +286,14 @@ class API {
 		}
 
 		$stats = Analytics::get_campaign_stats( $endpoint, $campaign_id );
+		$daily = Analytics::get_campaign_daily_stats( $endpoint, $campaign_id, 14 );
 
 		$result = [
 			'success'     => true,
 			'endpoint'    => $endpoint,
 			'campaign_id' => $campaign_id,
 			'stats'       => $stats,
+			'daily'       => $daily,
 		];
 
 		wp_cache_set( $cache_key, $result, 'hnw_analytics', 300 );

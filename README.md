@@ -231,6 +231,3 @@ GPL v2 or later
 - Dynamic site management
 - API endpoints  
 - Admin panel with UI
-
-#   h t m l - n o t i c e - w i d g e t  
- 

@@ -226,15 +226,14 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 		 * @param array $contents Contents array.
 		 */
 		private function store_contents( $contents ) {
-			$key          = $this->get_option_key( 'contents' );
-			$old_contents = get_option( $key, array() );
-			$old_ids      = wp_list_pluck( $old_contents, 'id' );
-			$new_ids      = wp_list_pluck( $contents, 'id' );
+			$key     = $this->get_option_key( 'contents' );
+			$new_ids = wp_list_pluck( $contents, 'id' );
 
-			// Clean up stale dismiss keys.
-			$removed_ids = array_diff( $old_ids, $new_ids );
-			foreach ( $removed_ids as $removed_id ) {
-				delete_option( $this->get_option_key( 'dismissed_' . $removed_id ) );
+			// Prune dismissed IDs that no longer exist on the hub.
+			$dismissed_ids = $this->get_dismissed_ids();
+			$cleaned       = array_values( array_intersect( $dismissed_ids, $new_ids ) );
+			if ( count( $cleaned ) !== count( $dismissed_ids ) ) {
+				update_option( $this->get_option_key( 'dismissed_ids' ), $cleaned, false );
 			}
 
 			update_option( $key, $contents, false );
@@ -245,20 +244,9 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 		 * Clear all stored contents
 		 */
 		private function clear_contents() {
-			$contents = get_option( $this->get_option_key( 'contents' ), array() );
-
-			// Clean up all dismiss keys.
-			if ( is_array( $contents ) ) {
-				foreach ( $contents as $content ) {
-					if ( isset( $content['id'] ) ) {
-						delete_option( $this->get_option_key( 'dismissed_' . $content['id'] ) );
-					}
-				}
-			}
-
 			delete_option( $this->get_option_key( 'contents' ) );
 			delete_option( $this->get_option_key( 'fetched_time' ) );
-			delete_option( $this->get_option_key( 'temp_dismissed' ) );
+			delete_option( $this->get_option_key( 'dismissed_ids' ) );
 		}
 
 		/**
@@ -267,8 +255,9 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 		 * @return array
 		 */
 		private function get_non_dismissed_contents() {
-			$contents = get_option( $this->get_option_key( 'contents' ), array() );
-			$result   = array();
+			$contents      = get_option( $this->get_option_key( 'contents' ), array() );
+			$dismissed_ids = $this->get_dismissed_ids();
+			$result        = array();
 
 			if ( ! is_array( $contents ) ) {
 				return $result;
@@ -279,8 +268,7 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 					continue;
 				}
 
-				$dismissed = get_option( $this->get_option_key( 'dismissed_' . $content['id'] ), false );
-				if ( ! $dismissed ) {
+				if ( ! in_array( $content['id'], $dismissed_ids, true ) ) {
 					$result[] = $content;
 				}
 			}
@@ -289,18 +277,39 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 		}
 
 		/**
-		 * Check if temporarily dismissed
+		 * Get the dismissed campaign IDs array
 		 *
-		 * @return bool
+		 * @return array List of dismissed content IDs.
 		 */
-		private function is_temporarily_dismissed() {
-			$dismiss_time = get_option( $this->get_option_key( 'temp_dismissed' ), 0 );
+		private function get_dismissed_ids() {
+			$ids = get_option( $this->get_option_key( 'dismissed_ids' ), array() );
+			return is_array( $ids ) ? $ids : array();
+		}
 
-			if ( empty( $dismiss_time ) ) {
-				return false;
+		/**
+		 * Add a campaign ID to the dismissed list with FIFO cleanup
+		 *
+		 * Stores up to 20 dismissed campaign IDs. When the limit is exceeded,
+		 * the oldest entries are removed to keep the option lightweight.
+		 *
+		 * @param string $content_id The campaign UUID to dismiss.
+		 */
+		private function add_dismissed_id( $content_id ) {
+			$ids = $this->get_dismissed_ids();
+
+			// Already dismissed — nothing to do.
+			if ( in_array( $content_id, $ids, true ) ) {
+				return;
 			}
 
-			return ( current_time( 'timestamp' ) - intval( $dismiss_time ) ) < $this->dismiss_duration;
+			$ids[] = $content_id;
+
+			// FIFO cleanup: keep only the 20 most recent dismissed IDs.
+			if ( count( $ids ) > 20 ) {
+				$ids = array_slice( $ids, -20 );
+			}
+
+			update_option( $this->get_option_key( 'dismissed_ids' ), $ids, false );
 		}
 
 		/**
@@ -308,10 +317,6 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 		 */
 		public function display_notices() {
 			if ( ! current_user_can( $this->capability ) ) {
-				return;
-			}
-
-			if ( $this->is_temporarily_dismissed() ) {
 				return;
 			}
 
@@ -371,6 +376,10 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 					}
 					#rnc-notice-<?php echo esc_attr( $this->product . '-' . $content_id ); ?> .notice-dismiss:hover {
 						color: #c92c2c !important;
+					}
+
+					#rnc-notice-<?php echo esc_attr( $this->product . '-' . $content_id ); ?> img {
+						max-width: 100% !important;
 					}
 				</style>
 
@@ -463,7 +472,7 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 				wp_send_json_error( array( 'message' => 'Invalid content ID' ) );
 			}
 
-			update_option( $this->get_option_key( 'dismissed_' . $content_id ), true, false );
+			$this->add_dismissed_id( $content_id );
 
 			wp_send_json_success( array( 'message' => 'Content dismissed' ) );
 		}

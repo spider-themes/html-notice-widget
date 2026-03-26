@@ -114,13 +114,6 @@
 				const text = $('#' + targetId).text();
 				HNWClipboard.copy(text, this);
 			});
-
-			// API URL copy buttons
-			$(document).on('click', '.hnw-api-copy', function (e) {
-				e.preventDefault();
-				const text = $(this).closest('.hnw-api-block').find('.hnw-api-block__url').text().trim();
-				HNWClipboard.copy(text, this);
-			});
 		},
 	};
 
@@ -274,25 +267,32 @@
 
 			const proCode =
 				"<?php\n" +
-				"// Option A: Completely disable the client when Pro is active\n" +
+				"// Option A: Toggle notices on/off based on Pro status.\n" +
+				"// When Pro is active  → disable (stops cron + clears cache).\n" +
+				"// When Pro is removed → enable + init (auto-recovers).\n" +
 				"add_action( 'admin_init', function() {\n" +
-				"    if ( defined( 'YOUR_PLUGIN_PRO_ACTIVE' ) && YOUR_PLUGIN_PRO_ACTIVE ) {\n" +
+				"    $is_pro = defined( 'YOUR_PLUGIN_PRO_ACTIVE' ) && YOUR_PLUGIN_PRO_ACTIVE;\n\n" +
+				"    if ( $is_pro ) {\n" +
 				"        Remote_Notice_Client::disable( '" + product + "' );\n" +
 				"        return;\n" +
 				"    }\n\n" +
+				"    // Re-enable in case it was previously disabled by Pro.\n" +
+				"    Remote_Notice_Client::enable( '" + product + "' );\n\n" +
 				"    Remote_Notice_Client::init( '" + product + "', [\n" +
 				"        'api_url'        => '" + apiUrl + "',\n" +
 				"        'plugin_version' => YOUR_PLUGIN_VERSION,\n" +
 				"    ]);\n" +
 				"});\n\n" +
-				"// Option B: Let targeting rules filter per-campaign\n" +
-				"// Pass 'is_pro' => true so campaigns with audience\n" +
-				"// targeting (Free Only / Pro Only) work automatically.\n" +
-				"Remote_Notice_Client::init( '" + product + "', [\n" +
-				"    'api_url'        => '" + apiUrl + "',\n" +
-				"    'plugin_version' => YOUR_PLUGIN_VERSION,\n" +
-				"    'is_pro'         => true,\n" +
-				"]);";
+				"// Option B: Keep notices running for everyone, let\n" +
+				"// campaign targeting decide who sees what.\n" +
+				"// 'is_pro' flag enables Free Only / Pro Only filters.\n" +
+				"add_action( 'admin_init', function() {\n" +
+				"    Remote_Notice_Client::init( '" + product + "', [\n" +
+				"        'api_url'        => '" + apiUrl + "',\n" +
+				"        'plugin_version' => YOUR_PLUGIN_VERSION,\n" +
+				"        'is_pro'         => defined( 'YOUR_PLUGIN_PRO' ) && YOUR_PLUGIN_PRO,\n" +
+				"    ]);\n" +
+				"});";
 			$('#hnw-user-doc-pro-code').text(proCode);
 
 			HNWModal.open('#hnw-modal-user-doc');

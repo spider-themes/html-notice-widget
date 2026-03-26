@@ -356,15 +356,6 @@ class PHP_Admin {
 				<div class="hnw-endpoint" data-hnw-tooltip="This slug is used in the REST API URL" data-tooltip-pos="right">
 					/ <?php echo esc_html( $site['endpoint'] ); ?>
 				</div>
-
-				<div class="hnw-api-block">
-					<div>
-						<div class="hnw-api-block__label">API Endpoint</div>
-						<div class="hnw-api-block__url"><?php echo esc_url( $api_url ); ?></div>
-					</div>
-					<button type="button" class="hnw-btn hnw-btn--ghost hnw-btn--sm hnw-api-copy"
-						data-hnw-tooltip="Copy API URL to clipboard" data-tooltip-pos="left"><?php echo self::svg_icon( 'clipboard', 14 ); ?> Copy</button>
-				</div>
 			</div>
 
 			<!-- Campaigns Section -->
@@ -958,6 +949,7 @@ class PHP_Admin {
 			'bar-chart'  => '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
 			'eye'        => '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
 			'mouse-pointer' => '<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/>',
+			'refresh'    => '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
 		];
 
 		$path = $icons[ $name ] ?? '';
