@@ -143,6 +143,7 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 				'ol'     => array( 'class' => array() ),
 				'li'     => array( 'class' => array() ),
 				'img'    => array( 'src' => array(), 'alt' => array(), 'class' => array(), 'width' => array(), 'height' => array() ),
+				'style'  => array( 'type' => array(), 'media' => array() ),
 			);
 		}
 
@@ -325,6 +326,35 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 			if ( empty( $contents ) ) {
 				return;
 			}
+			?>
+			<style>
+				.rnc-notice-wrapper {
+					margin: 20px 20px 20px 0 !important;
+					padding: 0 !important;
+					background: transparent !important;
+					border: 0 !important;
+					position: relative;
+					box-shadow: none;
+				}
+				.rnc-notice-wrapper .notice-dismiss {
+					position: absolute !important;
+					top: 0 !important;
+					right: 1px !important;
+					border: none !important;
+					margin: 0 !important;
+					padding: 9px !important;
+					background: none !important;
+					color: #787c82 !important;
+					cursor: pointer !important;
+				}
+				.rnc-notice-wrapper .notice-dismiss:hover {
+					color: #c92c2c !important;
+				}
+				.rnc-notice-wrapper img {
+					max-width: 100% !important;
+				}
+			</style>
+			<?php
 
 			foreach ( $contents as $content ) {
 				if ( ! isset( $content['id'] ) || ! isset( $content['content'] ) ) {
@@ -337,7 +367,7 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 				}
 
 				$content_id   = sanitize_key( $content['id'] );
-				$html_content = wp_kses( $content['content'], $this->allowed_html );
+				$html_content = $content['content']; // Admin-authored, stored raw — no filtering needed.
 				$nonce        = wp_create_nonce( 'rnc_dismiss_' . $this->product . '_' . $content_id );
 				$ajax_action  = 'rnc_dismiss_content_' . $this->product;
 
@@ -349,39 +379,12 @@ if ( ! class_exists( 'Remote_Notice_Client' ) ) {
 				     data-nonce="<?php echo esc_attr( $nonce ); ?>"
 				     data-action="<?php echo esc_attr( $ajax_action ); ?>">
 					<div class="rnc-notice-content">
-						<?php echo $html_content; // Already sanitized with wp_kses above ?>
+						<?php echo $html_content; // Admin-authored content, output as-is ?>
 					</div>
 					<button type="button" class="notice-dismiss"><span class="screen-reader-text">Dismiss this notice.</span></button>
 				</div>
 
-				<style>
-					#rnc-notice-<?php echo esc_attr( $this->product . '-' . $content_id ); ?> {
-						margin: 20px 0 !important;
-						padding: 0 !important;
-						background: transparent !important;
-						border: 0 !important;
-						position: relative;
-						box-shadow: none;
-					}
-					#rnc-notice-<?php echo esc_attr( $this->product . '-' . $content_id ); ?> .notice-dismiss {
-						position: absolute !important;
-						top: 0 !important;
-						right: 1px !important;
-						border: none !important;
-						margin: 0 !important;
-						padding: 9px !important;
-						background: none !important;
-						color: #787c82 !important;
-						cursor: pointer !important;
-					}
-					#rnc-notice-<?php echo esc_attr( $this->product . '-' . $content_id ); ?> .notice-dismiss:hover {
-						color: #c92c2c !important;
-					}
 
-					#rnc-notice-<?php echo esc_attr( $this->product . '-' . $content_id ); ?> img {
-						max-width: 100% !important;
-					}
-				</style>
 
 				<script>
 					(function() {

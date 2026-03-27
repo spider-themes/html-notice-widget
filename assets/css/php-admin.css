@@ -6,14 +6,15 @@
 /* ---------- 1. Design Tokens ---------- */
 :root {
 	/* Brand */
-	--hnw-brand: #6c5ce7;
-	--hnw-brand-light: #a29bfe;
-	--hnw-brand-dark: #4834d4;
-	--hnw-brand-bg: #f0edff;
+	--hnw-brand: #0284c7;
+	--hnw-brand-light: #f0f9ff;
+	--hnw-brand-dark: #0c4a6e;
+	--hnw-brand-bg: #e0f2fe;
 
-	/* Accent */
-	--hnw-accent: #00cec9;
-	--hnw-accent-light: #dff9f8;
+	/* Text & Background */
+	--hnw-text: var(--hnw-gray-800);
+	--hnw-bg: #ffffff;
+	--hnw-border: var(--hnw-gray-200);
 
 	/* Neutrals */
 	--hnw-gray-50: #f8f9fb;
@@ -47,7 +48,7 @@
 }
 
 /* ---------- SVG Icon Base ---------- */
-.hnw-icon {
+.hnw-wrap .hnw-icon {
 	display: inline-block;
 	vertical-align: middle;
 	line-height: 1;
@@ -62,7 +63,7 @@
 }
 
 /* Hero header */
-.hnw-hero {
+.hnw-wrap .hnw-hero {
 	background: linear-gradient(135deg, var(--hnw-brand) 0%, var(--hnw-brand-dark) 100%);
 	border-radius: var(--hnw-radius-lg);
 	padding: 30px 35px;
@@ -72,7 +73,6 @@
 	justify-content: space-between;
 	gap: 20px;
 	color: #fff;
-	box-shadow: 0 8px 24px rgba(108, 92, 231, 0.35);
 
 	& .hnw-hero__info {
 		display: flex;
@@ -81,7 +81,6 @@
 	}
 
 	& .hnw-hero__icon {
-		font-size: 38px;
 		line-height: 1;
 	}
 
@@ -90,7 +89,7 @@
 		font-weight: 700;
 		color: #fff;
 		margin: 0;
-		margin-bottom: 6px;
+		margin-bottom: 10px;
 	}
 
 	& .hnw-hero__subtitle {
@@ -107,14 +106,14 @@
 }
 
 /* Statistics ribbon */
-.hnw-stats {
+.hnw-wrap .hnw-stats {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 	gap: 14px;
 	margin-bottom: 25px;
 }
 
-.hnw-stat-card {
+.hnw-wrap .hnw-stat-card {
 	background: #fff;
 	border: 1px solid var(--hnw-gray-200);
 	border-radius: var(--hnw-radius-md);
@@ -154,7 +153,7 @@
 }
 
 /* Toolbar (above grid) */
-.hnw-toolbar {
+.hnw-wrap .hnw-toolbar {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -164,12 +163,13 @@
 		font-size: 16px;
 		font-weight: 600;
 		color: var(--hnw-gray-700);
+		text-transform: capitalize;
 		margin: 0;
 	}
 }
 
 /* ---------- 3. Button System ---------- */
-.hnw-btn {
+.hnw-wrap .hnw-btn {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
@@ -274,13 +274,15 @@
 }
 
 /* ---------- 4. Card Grid ---------- */
-.hnw-grid {
+.hnw-wrap .hnw-grid {
 	display: grid;
-	grid-template-columns: repeat(2, 1fr);
+	grid-template-columns: repeat(3, 1fr);
 	gap: 20px;
 }
 
-.hnw-card {
+.hnw-wrap .hnw-card {
+	display: flex;
+	flex-direction: column;
 	background: #fff;
 	border: 1px solid var(--hnw-gray-200);
 	border-radius: var(--hnw-radius-md);
@@ -291,7 +293,6 @@
 
 	&:hover {
 		box-shadow: var(--hnw-shadow-md);
-		border-left-color: var(--hnw-brand-dark);
 	}
 
 	& .hnw-card__header {
@@ -327,7 +328,7 @@
 }
 
 /* Endpoint chip */
-.hnw-endpoint {
+.hnw-wrap .hnw-endpoint {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
@@ -342,7 +343,7 @@
 }
 
 /* ---------- 5. Status & Badges ---------- */
-.hnw-badge {
+.hnw-wrap .hnw-badge {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
@@ -354,8 +355,8 @@
 	white-space: nowrap;
 
 	&.hnw-badge--enabled {
-		background: var(--hnw-success-bg);
-		color: #00875a;
+		background: var(--hnw-gray-50);
+        color: var(--hnw-gray-800);
 	}
 
 	&.hnw-badge--disabled {
@@ -375,10 +376,10 @@
 }
 
 /* ---------- 6. Content / Campaign List ---------- */
-.hnw-campaigns {
+.hnw-wrap .hnw-campaigns {
 	border-top: 1px solid var(--hnw-gray-100);
 	margin-top: 4px;
-
+	flex: 1;
 	& .hnw-campaigns__header {
 		display: flex;
 		justify-content: space-between;
@@ -408,7 +409,7 @@
 	}
 }
 
-.hnw-campaign-item {
+.hnw-wrap .hnw-campaign-item {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -419,10 +420,6 @@
 	padding: 12px 14px;
 	margin-bottom: 8px;
 	transition: all var(--hnw-transition);
-
-	&:last-child {
-		margin-bottom: 0;
-	}
 
 	&:hover {
 		border-color: var(--hnw-gray-300);
@@ -465,7 +462,7 @@
 }
 
 /* ---------- 7. Empty State ---------- */
-.hnw-empty {
+.hnw-wrap .hnw-empty {
 	text-align: center;
 	padding: 60px 30px;
 	background: #fff;
@@ -615,7 +612,7 @@
 }
 
 /* ---------- 9. Notice Types ---------- */
-.hnw-notice {
+.hnw-wrap .hnw-notice {
 	display: flex;
 	align-items: flex-start;
 	gap: 12px;
@@ -668,20 +665,20 @@
 }
 
 /* ---------- 9b. Targeting Section ---------- */
-.hnw-targeting-section {
+.hnw-wrap .hnw-targeting-section {
 	margin-top: 8px;
 	border: 1px solid var(--hnw-border);
 	border-radius: var(--hnw-radius-sm);
 	overflow: hidden;
 }
 
-.hnw-targeting-toggle {
+.hnw-wrap .hnw-targeting-toggle {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	width: 100%;
 	padding: 10px 14px;
-	background: var(--hnw-bg);
+	background: var(--hnw-gray-100);
 	border: none;
 	cursor: pointer;
 	font-size: 13px;
@@ -704,12 +701,12 @@
 	}
 }
 
-.hnw-targeting-body {
-	padding: 16px;
+.hnw-wrap .hnw-targeting-body {
+	padding: 8px;
 	border-top: 1px solid var(--hnw-border);
 }
 
-.hnw-version-row {
+.hnw-wrap .hnw-version-row {
 	display: flex;
 	gap: 8px;
 
@@ -718,13 +715,13 @@
 	}
 }
 
-.hnw-role-grid {
+.hnw-wrap .hnw-role-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
 	gap: 6px 12px;
 }
 
-.hnw-role-check {
+.hnw-wrap .hnw-role-check {
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -737,14 +734,14 @@
 }
 
 /* Targeting badge on campaign items */
-.hnw-campaign-item__targeting {
+.hnw-wrap .hnw-campaign-item__targeting {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 4px;
 	margin-top: 4px;
 }
 
-.hnw-badge--targeting {
+.hnw-wrap .hnw-badge--targeting {
 	background: #ede9fe;
 	color: #6d28d9;
 	font-size: 10px;
@@ -756,7 +753,7 @@
 }
 
 /* ---------- 10. Modal System (Centralized) ---------- */
-.hnw-modal {
+.hnw-wrap .hnw-modal {
 	position: fixed;
 	inset: 0;
 	z-index: 100000;
@@ -790,7 +787,7 @@
 		background: #fff;
 		border-radius: var(--hnw-radius-lg);
 		width: 90%;
-		max-width: 540px;
+		max-width: 640px;
 		max-height: 85vh;
 		display: flex;
 		flex-direction: column;
@@ -866,7 +863,7 @@
 }
 
 /* ---------- 11. Form Components ---------- */
-.hnw-field {
+.hnw-wrap .hnw-field {
 	margin-bottom: 18px;
 
 	&:last-child {
@@ -894,10 +891,10 @@
 	}
 }
 
-.hnw-input,
-.hnw-textarea {
+.hnw-wrap .hnw-input,
+.hnw-wrap .hnw-textarea {
 	width: 100%;
-	padding: 9px 14px;
+	padding: 7px 14px;
 	border: 1px solid var(--hnw-gray-300);
 	border-radius: var(--hnw-radius-sm);
 	font-size: 14px;
@@ -917,7 +914,7 @@
 	}
 }
 
-.hnw-textarea {
+.hnw-wrap .hnw-textarea {
 	resize: vertical;
 	min-height: 120px;
 	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -926,7 +923,7 @@
 }
 
 /* Custom toggle switch */
-.hnw-toggle {
+.hnw-wrap .hnw-toggle {
 	display: inline-flex;
 	align-items: center;
 	gap: 10px;
@@ -974,7 +971,7 @@
 }
 
 /* Schedule fields row */
-.hnw-schedule-row {
+.hnw-wrap .hnw-schedule-row {
 	display: flex;
 	gap: 16px;
 
@@ -983,7 +980,7 @@
 	}
 }
 
-.hnw-datetime {
+.hnw-wrap .hnw-datetime {
 	width: 100%;
 	padding: 9px 14px;
 	border: 1px solid var(--hnw-gray-300);
@@ -1002,13 +999,13 @@
 }
 
 /* Delete form inline wrapper */
-.hnw-inline-form {
+.hnw-wrap .hnw-inline-form {
 	display: inline;
 	margin: 0;
 }
 
 /* ---------- 12. Docs Modal Specific ---------- */
-.hnw-user-doc-step {
+.hnw-wrap .hnw-user-doc-step {
 	margin-bottom: 24px;
 	padding-bottom: 20px;
 	border-bottom: 1px solid var(--hnw-gray-100);
@@ -1034,7 +1031,7 @@
 	}
 }
 
-.hnw-code-block {
+.hnw-wrap .hnw-code-block {
 	position: relative;
 
 	& pre {
@@ -1057,7 +1054,7 @@
 	}
 }
 
-.hnw-options-table {
+.hnw-wrap .hnw-options-table {
 	width: 100%;
 	border-collapse: collapse;
 	font-size: 13px;
@@ -1157,14 +1154,14 @@
    ========================================================================== */
 
 /* Two-column layout */
-.hnw-analytics-layout {
+.hnw-wrap .hnw-analytics-layout {
 	display: flex;
 	gap: 20px;
 	align-items: flex-start;
 }
 
 /* Product sidebar */
-.hnw-sidebar {
+.hnw-wrap .hnw-sidebar {
 	width: 240px;
 	flex-shrink: 0;
 	background: #fff;
@@ -1189,7 +1186,7 @@
 	}
 }
 
-.hnw-sidebar-item {
+.hnw-wrap .hnw-sidebar-item {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -1221,13 +1218,13 @@
 }
 
 /* Main content panel */
-.hnw-analytics-content {
+.hnw-wrap .hnw-analytics-content {
 	flex: 1;
 	min-width: 0;
 }
 
 /* Campaign analytics table */
-.hnw-analytics-table {
+.hnw-wrap .hnw-analytics-table {
 	width: 100%;
 	border-collapse: collapse;
 	background: #fff;
@@ -1257,7 +1254,7 @@
 	}
 }
 
-.hnw-campaign-row {
+.hnw-wrap .hnw-campaign-row {
 	cursor: pointer;
 	transition: background var(--hnw-transition);
 
@@ -1276,11 +1273,10 @@
 }
 
 /* Detail panel */
-.hnw-detail-panel {
+.hnw-wrap .hnw-detail-panel {
 	margin-top: 20px;
 	background: #fff;
 	border: 1px solid var(--hnw-gray-200);
-	border-left: 4px solid var(--hnw-brand);
 	border-radius: var(--hnw-radius-md);
 	padding: 20px 24px;
 
@@ -1300,14 +1296,14 @@
 }
 
 /* Metric card grid */
-.hnw-metric-grid {
+.hnw-wrap .hnw-metric-grid {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
 	gap: 14px;
 	margin-bottom: 18px;
 }
 
-.hnw-metric-card {
+.hnw-wrap .hnw-metric-card {
 	background: var(--hnw-gray-50);
 	border: 1px solid var(--hnw-gray-200);
 	border-radius: var(--hnw-radius-sm);
@@ -1340,7 +1336,7 @@
 }
 
 /* CTR section */
-.hnw-ctr-section {
+.hnw-wrap .hnw-ctr-section {
 	& .hnw-ctr-section__header {
 		display: flex;
 		justify-content: space-between;
@@ -1361,7 +1357,7 @@
 	}
 }
 
-.hnw-ctr-bar {
+.hnw-wrap .hnw-ctr-bar {
 	height: 8px;
 	background: var(--hnw-gray-100);
 	border-radius: 100px;
@@ -1377,11 +1373,11 @@
 }
 
 /* Skeleton loading */
-.hnw-analytics-loading {
+.hnw-wrap .hnw-analytics-loading {
 	padding: 8px 0;
 }
 
-.hnw-skeleton {
+.hnw-wrap .hnw-skeleton {
 	background: linear-gradient(90deg, var(--hnw-gray-100) 25%, var(--hnw-gray-50) 50%, var(--hnw-gray-100) 75%);
 	background-size: 200% 100%;
 	animation: hnw-shimmer 1.5s infinite;
@@ -1399,7 +1395,7 @@
 }
 
 /* Spin animation for refresh button */
-.hnw-spin {
+.hnw-wrap .hnw-spin {
 	display: inline-block;
 	animation: hnw-rotate 0.8s linear infinite;
 }
@@ -1409,7 +1405,7 @@
 	to { transform: rotate(360deg); }
 }
 
-.hnw-is-loading {
+.hnw-wrap .hnw-is-loading {
 	opacity: 0.7;
 	pointer-events: none;
 }
@@ -1439,7 +1435,7 @@
 }
 
 /* ---------- Help Icon (inline tooltip trigger) ---------- */
-.hnw-help-icon {
+.hnw-wrap .hnw-help-icon {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -1458,26 +1454,26 @@
 }
 
 /* ---------- Daily Breakdown Section ---------- */
-.hnw-daily-section {
+.hnw-wrap .hnw-daily-section {
 	border-top: 1px solid var(--hnw-gray-100);
 	margin-top: 16px;
 	padding-top: 14px;
 }
 
-.hnw-daily-section__title {
+.hnw-wrap .hnw-daily-section__title {
 	font-size: 13px;
 	font-weight: 700;
 	color: var(--hnw-gray-700);
 	margin: 0 0 10px;
 }
 
-.hnw-daily-section__hint {
+.hnw-wrap .hnw-daily-section__hint {
 	font-weight: 400;
 	color: var(--hnw-gray-400);
 	font-size: 11px;
 }
 
-.hnw-daily-empty {
+.hnw-wrap .hnw-daily-empty {
 	text-align: center;
 	color: var(--hnw-gray-400);
 	font-size: 13px;
@@ -1486,7 +1482,7 @@
 	margin: 0;
 }
 
-.hnw-daily-breakdown {
+.hnw-wrap .hnw-daily-breakdown {
 	width: 100%;
 	border-collapse: collapse;
 	font-size: 12px;
@@ -1515,14 +1511,14 @@
 }
 
 /* ---------- Inline CTR Progress Bar ---------- */
-.hnw-ctr-inline {
+.hnw-wrap .hnw-ctr-inline {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	min-width: 100px;
 }
 
-.hnw-ctr-inline__bar {
+.hnw-wrap .hnw-ctr-inline__bar {
 	flex: 1;
 	height: 6px;
 	background: var(--hnw-gray-100);
@@ -1530,7 +1526,7 @@
 	overflow: hidden;
 }
 
-.hnw-ctr-inline__fill {
+.hnw-wrap .hnw-ctr-inline__fill {
 	height: 100%;
 	background: var(--hnw-brand);
 	border-radius: 3px;
@@ -1538,11 +1534,47 @@
 	min-width: 0;
 }
 
-.hnw-ctr-inline__value {
+.hnw-wrap .hnw-ctr-inline__value {
 	font-size: 12px;
 	font-weight: 600;
 	color: var(--hnw-gray-700);
 	white-space: nowrap;
 	min-width: 36px;
 	text-align: right;
+}
+
+
+/* ---------- Campaign List See More ---------- */
+.hnw-wrap .hnw-campaigns__list {
+	position: relative;
+}
+.hnw-wrap .hnw-campaign-hidden {
+	display: none;
+	opacity: 0;
+	transform: translateY(15px);
+	transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.hnw-wrap .hnw-campaign-hidden.hnw-show {
+	display: block;
+}
+.hnw-wrap .hnw-campaign-hidden.hnw-animate {
+	opacity: 1;
+	transform: translateY(0);
+}
+.hnw-wrap .hnw-campaigns__fade {
+	position: absolute;
+	bottom: 40px;
+	left: 0;
+	right: 0;
+	height: 60px;
+	background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--hnw-bg));
+	pointer-events: none;
+	transition: opacity 0.3s ease;
+}
+.hnw-wrap .hnw-campaigns__more {
+	text-align: center;
+	padding-top: 15px;
+	margin-top: -15px;
+	position: relative;
+	z-index: 2;
 }

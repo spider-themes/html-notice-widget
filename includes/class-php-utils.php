@@ -192,7 +192,7 @@ class PHP_Utils {
 					'id'             => $content_id,
 					'title'          => sanitize_text_field( $content_data['title'] ),
 					'description'    => ! empty( $content_data['description'] ) ? sanitize_text_field( $content_data['description'] ) : '',
-					'content'        => wp_kses_post( $content_data['content'] ),
+					'content'        => $content_data['content'],
 					'enabled'        => ! empty( $content_data['enabled'] ),
 					'schedule_start' => ! empty( $content_data['schedule_start'] ) ? sanitize_text_field( $content_data['schedule_start'] ) : '',
 					'schedule_end'   => ! empty( $content_data['schedule_end'] ) ? sanitize_text_field( $content_data['schedule_end'] ) : '',
@@ -240,7 +240,7 @@ class PHP_Utils {
 						}
 
 						if ( isset( $content_data['content'] ) ) {
-							$content['content'] = wp_kses_post( $content_data['content'] );
+							$content['content'] = $content_data['content'];
 						}
 
 						if ( isset( $content_data['enabled'] ) ) {

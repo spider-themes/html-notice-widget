@@ -17,7 +17,6 @@ class PHP_Admin {
 	 */
 	public function __construct() {
 		add_action( 'admin_init', [ $this, 'handle_form_submissions' ] );
-		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 		add_action( 'wp_ajax_hnw_download_sdk', [ $this, 'ajax_download_sdk' ] );
 	}
 
@@ -55,6 +54,20 @@ class PHP_Admin {
 					break;
 			}
 		}
+	}
+
+	/**
+	 * Prepare campaign HTML for storage.
+	 *
+	 * Campaign content is authored by trusted admins (manage_options).
+	 * We only strip WP magic quotes — no tag filtering, so inline CSS,
+	 * style blocks, and full HTML are preserved exactly as entered.
+	 *
+	 * @param string $raw_html Raw HTML from form input.
+	 * @return string Unslashed HTML ready for storage.
+	 */
+	private function sanitize_campaign_html( $raw_html ) {
+		return wp_unslash( $raw_html );
 	}
 
 	/**
@@ -133,7 +146,7 @@ class PHP_Admin {
 		$site_id     = sanitize_text_field( $_POST['site_id'] ?? '' );
 		$title       = sanitize_text_field( $_POST['content_title'] ?? '' );
 		$description = sanitize_text_field( $_POST['content_description'] ?? '' );
-		$content     = wp_kses_post( $_POST['content_html'] ?? '' );
+		$content     = $this->sanitize_campaign_html( $_POST['content_html'] ?? '' );
 		$enabled     = isset( $_POST['content_enabled'] ) ? 1 : 0;
 
 		if ( empty( $site_id ) || empty( $title ) || empty( $content ) ) {
@@ -177,7 +190,7 @@ class PHP_Admin {
 		$content_id  = sanitize_text_field( $_POST['content_id'] ?? '' );
 		$title       = sanitize_text_field( $_POST['content_title'] ?? '' );
 		$description = sanitize_text_field( $_POST['content_description'] ?? '' );
-		$content     = wp_kses_post( $_POST['content_html'] ?? '' );
+		$content     = $this->sanitize_campaign_html( $_POST['content_html'] ?? '' );
 		$enabled     = isset( $_POST['content_enabled'] ) ? 1 : 0;
 
 		if ( empty( $site_id ) || empty( $content_id ) || empty( $title ) || empty( $content ) ) {
@@ -259,8 +272,7 @@ class PHP_Admin {
 					</div>
 				</div>
 				<div class="hnw-hero__actions">
-					<button type="button" class="hnw-btn hnw-btn--hero" id="hnw-add-product-btn"
-						data-hnw-tooltip="Create a new product endpoint" data-tooltip-pos="bottom"><?php echo self::svg_icon( 'plus', 14 ); ?> Add Product</button>
+					<button type="button" class="hnw-btn hnw-btn--hero" id="hnw-add-product-btn"><?php echo self::svg_icon( 'plus', 14 ); ?> Add Product</button>
 				</div>
 			</div>
 
@@ -281,7 +293,7 @@ class PHP_Admin {
 					</div>
 				</div>
 				<div class="hnw-stat-card">
-					<div class="hnw-stat-card__icon" style="background:var(--hnw-accent-light);color:var(--hnw-accent);"><?php echo self::svg_icon( 'check', 20 ); ?></div>
+					<div class="hnw-stat-card__icon" style="background:var(--hnw-success-bg);color:var(--hnw-success);"><?php echo self::svg_icon( 'check', 20 ); ?></div>
 					<div>
 						<div class="hnw-stat-card__value"><?php echo absint( $stats['enabled_contents'] ); ?></div>
 						<div class="hnw-stat-card__label">Active</div>
@@ -369,10 +381,25 @@ class PHP_Admin {
 				</div>
 
 				<?php if ( ! empty( $site['contents'] ) ): ?>
+					<?php 
+					// Newest first
+					$contents = array_reverse( $site['contents'], true ); 
+					?>
 					<div class="hnw-campaigns__list">
-						<?php foreach ( $site['contents'] as $content ): ?>
-							<?php $this->render_campaign_item( $site, $content ); ?>
-						<?php endforeach; ?>
+						<?php $i = 0; foreach ( $contents as $content ): ?>
+							<div class="hnw-campaign-wrap <?php echo $i >= 3 ? 'hnw-campaign-hidden' : ''; ?>">
+								<?php $this->render_campaign_item( $site, $content ); ?>
+							</div>
+						<?php $i++; endforeach; ?>
+						
+						<?php if ( count( $contents ) > 4 ): ?>
+							<div class="hnw-campaigns__fade"></div>
+							<div class="hnw-campaigns__more">
+								<button type="button" class="hnw-btn hnw-btn--secondary hnw-btn--sm hnw-campaigns-more-btn">
+									See More <?php echo self::svg_icon( 'chevron-down', 14 ); ?>
+								</button>
+							</div>
+						<?php endif; ?>
 					</div>
 				<?php else: ?>
 					<p class="hnw-campaigns__empty">No campaigns added yet.</p>
@@ -1025,33 +1052,5 @@ class PHP_Admin {
 
 		echo $content;
 		exit;
-	}
-
-	/**
-	 * Enqueue admin assets (CSS + JS)
-	 *
-	 * @param string $hook Current admin page hook.
-	 */
-	public function enqueue_admin_assets( $hook ) {
-		if ( 'toplevel_page_html-notice-widget' !== $hook ) {
-			return;
-		}
-
-		wp_enqueue_style(
-			'html-notice-widget-admin',
-			HTML_NOTICE_WIDGET_URL . 'assets/css/php-admin.css',
-			[],
-			HTML_NOTICE_WIDGET_VERSION
-		);
-
-		wp_enqueue_script( 'jquery' );
-
-		wp_enqueue_script(
-			'html-notice-widget-admin',
-			HTML_NOTICE_WIDGET_URL . 'assets/js/php-admin.js',
-			[ 'jquery' ],
-			HTML_NOTICE_WIDGET_VERSION,
-			true
-		);
 	}
 }

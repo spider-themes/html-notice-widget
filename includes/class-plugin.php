@@ -54,6 +54,9 @@ class Plugin {
 		// Initialize PHP Admin interface
 		$this->php_admin = new PHP_Admin();
 		$this->analytics_admin = new Analytics_Admin();
+
+		// Centralized asset enqueue handler.
+		new Enqueue_Assets();
 	}
 
 	/**

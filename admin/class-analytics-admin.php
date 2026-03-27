@@ -1,8 +1,6 @@
 <?php
 /**
- * Analytics Admin Page
- *
- * Renders the analytics submenu page and enqueues its assets.
+ * Analytics Admin Page for HTML Notice Widget
  *
  * @package HTML_Notice_Widget
  */
@@ -19,56 +17,7 @@ class Analytics_Admin {
 	 * Constructor — register hooks
 	 */
 	public function __construct() {
-		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_action( 'wp_ajax_hnw_trigger_rollup', [ $this, 'ajax_trigger_rollup' ] );
-	}
-
-	/**
-	 * Enqueue analytics page assets
-	 *
-	 * @param string $hook Current admin page hook.
-	 */
-	public function enqueue_assets( $hook ) {
-		if ( 'html-notice-widget_page_html-notice-widget-analytics' !== $hook ) {
-			return;
-		}
-
-		wp_enqueue_style(
-			'html-notice-widget-admin',
-			HTML_NOTICE_WIDGET_URL . 'assets/css/php-admin.css',
-			[],
-			HTML_NOTICE_WIDGET_VERSION
-		);
-
-		wp_enqueue_script( 'jquery' );
-
-		wp_enqueue_script(
-			'html-notice-widget-analytics',
-			HTML_NOTICE_WIDGET_URL . 'assets/js/analytics-admin.js',
-			[ 'jquery' ],
-			HTML_NOTICE_WIDGET_VERSION,
-			true
-		);
-
-		// Pass data to JS.
-		$sites    = PHP_Utils::get_all_sites();
-		$products = [];
-
-		foreach ( $sites as $site ) {
-			$products[] = [
-				'product'  => $site['product'],
-				'endpoint' => $site['endpoint'],
-				'campaigns' => count( $site['contents'] ?? [] ),
-			];
-		}
-
-		wp_localize_script( 'html-notice-widget-analytics', 'hnwAnalytics', [
-			'restUrl'      => esc_url_raw( rest_url( 'html-notice-widget/v1' ) ),
-			'nonce'        => wp_create_nonce( 'wp_rest' ),
-			'products'     => $products,
-			'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
-			'rollupNonce'  => wp_create_nonce( 'hnw_rollup_nonce' ),
-		] );
 	}
 
 	/**
@@ -145,7 +94,7 @@ class Analytics_Admin {
 					</div>
 				</div>
 				<div class="hnw-stat-card">
-					<div class="hnw-stat-card__icon" style="background:var(--hnw-accent-light);color:var(--hnw-accent);"><?php echo PHP_Admin::svg_icon( 'check', 20 ); ?></div>
+					<div class="hnw-stat-card__icon" style="background:var(--hnw-success-bg);color:var(--hnw-success);"><?php echo PHP_Admin::svg_icon( 'check', 20 ); ?></div>
 					<div>
 						<div class="hnw-stat-card__value"><?php echo absint( $active['enabled_contents'] ); ?></div>
 						<div class="hnw-stat-card__label">Active Campaigns</div>

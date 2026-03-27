@@ -30,6 +30,14 @@
 			void el.offsetHeight;
 			el.classList.add('hnw-modal--open');
 			document.body.style.overflow = 'hidden';
+
+			// Auto-focus the first visible input inside the modal.
+			setTimeout(function () {
+				var firstInput = el.querySelector('input:not([type="hidden"]), textarea, select');
+				if (firstInput) {
+					firstInput.focus();
+				}
+			}, 100);
 		},
 
 		/**
@@ -90,17 +98,42 @@
 		 * @param {HTMLElement}  btn    Button that triggered the copy.
 		 */
 		copy(text, btn) {
-			if (!navigator.clipboard) {
-				return;
-			}
-			navigator.clipboard.writeText(text).then(function () {
-				const $btn = $(btn);
-				const original = $btn.html();
+			const $btn = $(btn);
+			const original = $btn.html();
+			const showSuccess = function () {
 				$btn.html('Copied!');
 				setTimeout(function () {
 					$btn.html(original);
 				}, 2000);
-			});
+			};
+
+			if (navigator.clipboard && window.isSecureContext) {
+				navigator.clipboard.writeText(text).then(showSuccess);
+			} else {
+				// Fallback for HTTP environments (local dev)
+				const el = document.createElement('textarea');
+				el.value = text;
+				el.setAttribute('readonly', '');
+				el.style.position = 'absolute';
+				el.style.left = '-9999px';
+				document.body.appendChild(el);
+				
+				const selected =
+					document.getSelection().rangeCount > 0
+						? document.getSelection().getRangeAt(0)
+						: false;
+				el.select();
+				try {
+					document.execCommand('copy');
+					showSuccess();
+				} catch (err) { }
+				
+				document.body.removeChild(el);
+				if (selected) {
+					document.getSelection().removeAllRanges();
+					document.getSelection().addRange(selected);
+				}
+			}
 		},
 
 		/**
@@ -165,6 +198,32 @@
 
 		// ── Clipboard ──
 		HNWClipboard.bind();
+
+		// See More button click handler
+		$(document).on('click', '.hnw-campaigns-more-btn', function(e) {
+			e.preventDefault();
+			const $btn = $(this);
+			const $list = $btn.closest('.hnw-campaigns__list');
+			const $hiddenItems = $list.find('.hnw-campaign-hidden:not(.hnw-show)');
+			const $fade = $list.find('.hnw-campaigns__fade');
+
+			// Take the next 4 hidden items
+			const $nextItems = $hiddenItems.slice(0, 3);
+
+			$nextItems.addClass('hnw-show');
+			
+			// Trigger reflow to restart animation
+			$nextItems[0].offsetHeight; 
+			
+			$nextItems.addClass('hnw-animate');
+
+			// If no more items are hidden, hide the button and the fade
+			if ($list.find('.hnw-campaign-hidden:not(.hnw-show)').length === 0) {
+				$btn.parent().hide();
+				$fade.hide();
+			}
+		});
+
 
 		// ── Form Submit Loading ──
 		HNWFormState.bindSubmitLoading();
